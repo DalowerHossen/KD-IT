@@ -204,15 +204,20 @@ afterwards.
 
 ## 4. Environment variables (names only)
 
-| Variable                                                    | Purpose                                             | Required when                                             |
-| ----------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------- |
-| `SUPABASE_URL`                                              | Supabase project URL                                | production (dev-optional until Step 02 services are used) |
-| `SUPABASE_ANON_KEY`                                         | publishable key (browser/auth)                      | production                                                |
-| `SUPABASE_SERVICE_ROLE_KEY`                                 | privileged server boundary (`import "server-only"`) | production                                                |
-| `KD_DATABASE_URL`                                           | privileged direct Postgres (runner + repos)         | production                                                |
-| `KD_ENCRYPTION_MASTER_KEY`                                  | 32-byte base64 AES-256-GCM master material          | production                                                |
-| `KD_ENCRYPTION_KEY_VERSION`                                 | active integer key version (>= 1)                   | production                                                |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public browser client                               | when hosted Supabase ships                                |
+| Variable                                                    | Purpose                                                                                                                                                     | Required when                                             |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `SUPABASE_URL`                                              | Supabase project URL                                                                                                                                        | production (dev-optional until Step 02 services are used) |
+| `SUPABASE_ANON_KEY`                                         | publishable key (browser/auth)                                                                                                                              | production                                                |
+| `SUPABASE_SERVICE_ROLE_KEY`                                 | privileged server boundary (`import "server-only"`)                                                                                                         | production                                                |
+| `KD_DATABASE_URL`                                           | privileged direct Postgres (runner + repos)                                                                                                                 | production                                                |
+| `KD_ENCRYPTION_MASTER_KEY`                                  | 32-byte base64 AES-256-GCM master material                                                                                                                  | production                                                |
+| `KD_ENCRYPTION_KEY_VERSION`                                 | active integer key version (>= 1)                                                                                                                           | production                                                |
+| `KD_DATA_PLANE_ENABLED`                                     | when set to `true` in production the six data-plane variables above become hard boot requirements; omitted/false keeps foundation-only deployments bootable | production data-plane deployments                         |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public browser client                                                                                                                                       | when hosted Supabase ships                                |
+
+Complementary rules (any NODE_ENV): configuring any Supabase variable requires all three; configuring
+any encryption variable requires both. Every Step 02 service also validates configuration at
+use-time and fails closed, so a partially configured deployment can never reach a provider.
 
 Boot validation lives in `lib/config/env.ts` (fail-fast, values never logged); see `.env.example`.
 

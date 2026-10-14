@@ -51,6 +51,7 @@ const serverEnvSchema = z
     LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
     SENTRY_DSN: optionalUrl,
     CSP_REPORT_URI: optionalUrl,
+    KD_DATA_PLANE_ENABLED: z.enum(["true", "false"]).optional(),
     SUPABASE_URL: optionalUrl,
     SUPABASE_ANON_KEY: optionalNonEmpty,
     SUPABASE_SERVICE_ROLE_KEY: optionalNonEmpty,
@@ -59,28 +60,48 @@ const serverEnvSchema = z
     KD_ENCRYPTION_KEY_VERSION: keyVersionSchema,
   })
   .superRefine((env, context) => {
-    if (env.NODE_ENV !== "production") {
-      return;
-    }
-    const productionRequired: ReadonlyArray<keyof typeof env> = [
+    const requireAll = (keys: readonly (keyof typeof env)[], reason: string): void => {
+      for (const key of keys) {
+        if (env[key] === undefined) {
+          context.addIssue({
+            code: "custom",
+            path: [String(key)],
+            message: `${String(key)} is required ${reason}`,
+          });
+        }
+      }
+    };
+
+    const supabaseKeys = [
       "SUPABASE_URL",
       "SUPABASE_ANON_KEY",
       "SUPABASE_SERVICE_ROLE_KEY",
-      "KD_DATABASE_URL",
-      "KD_ENCRYPTION_MASTER_KEY",
-      "KD_ENCRYPTION_KEY_VERSION",
-    ];
-    for (const key of productionRequired) {
-      if (env[key] === undefined) {
-        context.addIssue({
-          code: "custom",
-          path: [key],
-          message: `${String(key)} is required when NODE_ENV=production`,
-        });
-      }
+    ] as const;
+    const encryptionKeys = ["KD_ENCRYPTION_MASTER_KEY", "KD_ENCRYPTION_KEY_VERSION"] as const;
+
+    const anySet = (keys: readonly (keyof typeof env)[]): boolean =>
+      keys.some((key) => env[key] !== undefined);
+
+    if (anySet(supabaseKeys)) {
+      requireAll(supabaseKeys, "when any Supabase variable is configured");
+    }
+    if (anySet(encryptionKeys)) {
+      requireAll(encryptionKeys, "when any encryption variable is configured");
+    }
+    if (env.NODE_ENV === "production" && env.KD_DATA_PLANE_ENABLED === "true") {
+      requireAll(
+        [...supabaseKeys, "KD_DATABASE_URL", ...encryptionKeys] as const,
+        "when the data plane is enabled in production",
+      );
     }
   });
 
+/**
+ * Production deployments that enable the data plane (KD_DATA_PLANE_ENABLED=true)
+ * are hard-validated at boot by the superRefine above. Deployments that
+ * serve foundation surfaces only remain bootable; every Step 02 service
+ * additionally validates its own configuration at use-time and fails closed.
+ */
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 
 let cachedServerEnv: ServerEnv | null = null;

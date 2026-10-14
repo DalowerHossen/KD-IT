@@ -261,6 +261,54 @@ export const strings = {
   health: {
     statusOk: "ok",
   },
+  dataPlane: {
+    approvals: {
+      title: "Command approvals",
+      subtitle:
+        "Privileged changes are staged here and execute only after the full approval chain.",
+      statusProposed: "Awaiting review",
+      statusAwaitingL2: "Awaiting Level 2 approval",
+      statusAwaitingL3: "Awaiting final approval",
+      statusAwaitingConfirmation: "Awaiting final confirmation",
+      statusApproved: "Approved, ready to execute",
+      statusExecuted: "Executed",
+      statusRejected: "Rejected",
+      statusExpired: "Expired",
+      statusCancelled: "Cancelled",
+      dualControlBadge: "Dual-control",
+      executeConfirm: "Execute",
+      rejectLabel: "Reject with reason",
+      expiredHint: "This request expired without execution.",
+    },
+    files: {
+      title: "Encrypted files",
+      subtitle: "Every stored file is encrypted before leaving this platform.",
+      storageProviderDrive: "Google Drive",
+      storageProviderSupabase: "Supabase Storage",
+      quarantineClean: "Verified",
+      quarantinePending: "Scanning",
+      quarantineQuarantined: "Held for review",
+      quarantineReleased: "Released from review",
+      migrationStable: "Stable",
+      migrationMigrating: "Migrating between providers",
+      migrationRetaining: "Retaining old copy",
+      overQuota: "The workspace storage quota is exhausted.",
+      duplicateNotice: "This file already exists in the workspace; the existing copy was reused.",
+    },
+    storage: {
+      connectionsTitle: "Storage connections",
+      healthHealthy: "Healthy",
+      healthDegraded: "Degraded",
+      healthUnhealthy: "Unavailable",
+      noHealthyProvider: "File storage is temporarily unavailable.",
+      retentionBanner:
+        "The previous provider copy is retained for 30 days, then removed automatically.",
+    },
+    queues: {
+      deadLetterTitle: "Dead-lettered jobs",
+      deadLetterEmpty: "No jobs require operator attention.",
+    },
+  },
 } as const;
 
 export type Strings = typeof strings;

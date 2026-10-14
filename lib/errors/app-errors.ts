@@ -85,6 +85,12 @@ export class ConfigurationError extends AppError {
   }
 }
 
+export class DatabaseError extends AppError {
+  constructor(message = "A database operation failed.", options?: AppErrorOptions) {
+    super(ERROR_CODES.DATABASE, 500, message, options);
+  }
+}
+
 export class ExternalServiceError extends AppError {
   constructor(message: string, options?: AppErrorOptions) {
     super(ERROR_CODES.EXTERNAL_SERVICE, 502, message, options);

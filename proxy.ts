@@ -21,11 +21,14 @@ function buildContentSecurityPolicy(nonce: string, isDevelopment: boolean): stri
     "'strict-dynamic'",
     ...(isDevelopment ? ["'unsafe-eval'"] : []),
   ];
-  const styleSources = [
-    "'self'",
-    `'nonce-${nonce}'`,
-    ...(isDevelopment ? ["'unsafe-inline'"] : []),
-  ];
+  /**
+   * Nonces cannot unlock style ATTRIBUTES, only <style>/<link> elements.
+   * React style props (Progress translate, chart legend swatches, motion
+   * initial states) render as style attributes, so 'unsafe-inline' is kept
+   * alongside the nonce: nonce-aware browsers ignore it for elements (the
+   * nonce governs those) while it continues to permit attributes.
+   */
+  const styleSources = ["'self'", `'nonce-${nonce}'`, "'unsafe-inline'"];
   const connectSources = ["'self'", ...(isDevelopment ? ["ws:", "wss:"] : [])];
   const directives = [
     "default-src 'self'",

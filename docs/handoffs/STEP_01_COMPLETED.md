@@ -95,6 +95,36 @@
 | Env fail-safe                                         | PASS (`LOG_LEVEL=verbose` aborts boot with structured log)                                                                                           |
 | Runtime smoke (production server)                     | PASS - `/` 200, `/design-system` 200, `/api/health` 200 with envelope + correlation id, unknown path 404, nonce CSP + HSTS + full header set present |
 
+## Post-acceptance verification pass (2026-10-14, same day)
+
+A full re-verification sweep was run after acceptance at the request of the
+product owner. Findings and resolutions, delivered in a follow-up fix commit:
+
+1. FIXED - production CSP blocked style ATTRIBUTES: `style-src` carried only
+   'self' plus the nonce, and nonces cannot unlock attributes. React style
+   props (Progress transform, chart legend swatches, framer-motion initial
+   states) serialize as style attributes, so they would have been stripped in
+   production rendering. Resolution: 'unsafe-inline' added beside the nonce
+   (nonce-aware browsers ignore it for elements; it only ever permits
+   attributes). ADR 0001 updated to record the reasoning.
+2. FIXED - `components.json` still referenced the deleted Tailwind 3 config
+   (`tailwind.config.ts`). Set to the Tailwind CSS 4 shadcn convention
+   ("config": "") with the CSS entry in `styles/globals.css`.
+3. VERIFIED CLEAN - ThemeProvider nonce passthrough to the next-themes
+   bootstrap script; `instrumentation.ts` fail-fast hookup; public/server env
+   split (`lib/config/env.ts` is server-only guarded, topbar/layout import
+   `lib/config/public-env.ts`); no raw `<style>` elements in product code;
+   `next.config.mjs` sets no CSP (single source in proxy.ts); `strings` is
+   `as const`, so the passed typecheck proves every referenced copy key
+   exists; `layoutTokens` import chain typechecks; strayed smoke-test server
+   processes were terminated.
+
+All gates re-run after the fix: `npm run quality` PASS, typecheck PASS,
+`npm run build` PASS, production smoke confirmed both `style="transform:...`
+markup served on `/design-system` and a CSP header carrying style
+'unsafe-inline'. The fix commit rides on the same branch without rewriting
+the accepted foundation commit.
+
 ## Known constraints and follow-ups for later steps
 
 - Pages render dynamically by design (per-request nonce CSP); plan caching

@@ -31,11 +31,16 @@ fail-fast configuration).
    contrast toward AAA; `prefers-reduced-motion` and `forced-colors` media
    handling live in the same stylesheet.
 4. Security headers per request from `proxy.ts`: a fresh nonce per response
-   feeds a CSP with `script-src 'self' 'nonce-...' 'strict-dynamic'`; HSTS,
-   frame-ancestors none, nosniff, strict referrer policy, and a deny-by-
-   default permissions policy. Nonces flow into the root layout through
-   request headers, so all pages render dynamically (static prerender
-   incompatible with per-request nonces).
+   feeds a CSP with `script-src 'self' 'nonce-...' 'strict-dynamic'` and
+   `style-src 'self' 'nonce-...' 'unsafe-inline'`; HSTS, frame-ancestors
+   none, nosniff, strict referrer policy, and a deny-by-default permissions
+   policy. The 'unsafe-inline' style source exists because nonces cannot
+   unlock style attributes and React style props (Progress transforms, chart
+   swatches, motion initial states) serialize as attributes; nonce-aware
+   browsers ignore 'unsafe-inline' for elements, which the nonce governs.
+   Nonces flow into the root layout through request headers, so all pages
+   render dynamically (static prerender incompatible with per-request
+   nonces).
 5. Configuration: Zod 4 schemas parsed once in `instrumentation.ts`
    (fail-fast at startup, structured error log, process abort). Client-safe
    env access goes through `lib/config/env.ts`; server-only access through

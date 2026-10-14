@@ -1,27 +1,33 @@
-// path: docs/dependency-records/0003-step-02-data-plane.md
+<!-- path: docs/dependency-records/0003-step-02-data-plane.md -->
 
-# Dependency Record 0003: Step 02 Data Plane Additions
+# Dependency Record 0003 - Step 02 Data Plane
 
-- Date: 2026-10-14
-- Step owner: Step 02 (secure data plane)
-- Integrator decision: approved for this step's manifest change
+## Approved in this record
 
-## Requests
+| Package                 | Version | Runtime role                                                                                                                | Approved for                                 |
+| ----------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `@supabase/supabase-js` | 2.117.3 | Supabase browser/server/privileged clients (auth headers, RLS-bound queries, storage API)                                   | Browser + server runtime                     |
+| `pg`                    | 8.23.1  | Direct PostgreSQL driver for privileged server-side access: migrations, RLS-bound transactions, advisory/SKIP-LOCKED queues | Server runtime only (`import "server-only"`) |
+| `decimal.js`            | 10.6.0  | Arbitrary-precision money arithmetic on canonical decimal strings                                                           | Browser + server runtime                     |
+| `@types/pg` (dev)       | 8.23.1  | Type definitions for `pg`                                                                                                   | Development only                             |
 
-| Package               | Exact version | Reason                                                                                                                                              | Review                                                                  |
-| --------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| @supabase/supabase-js | 2.117.3       | Official Supabase JavaScript data plane for browser, server, and privileged clients. Official source: supabase.com/docs and registry. License: MIT. | Approved; runtime=browser+server; no alternative with official support. |
-| pg                    | 8.23.1        | node-postgres driver used ONLY by migration, rollback, and SQL assertion tooling plus typed numeric-as-string parsing. License: MIT.                | Approved; server/tooling only, never bundled to the client.             |
-| @types/pg             | 8.23.1        | Type definitions matching pg 8.x. License: MIT.                                                                                                     | Approved; dev-only.                                                     |
-| decimal.js            | 10.6.0        | Approved arbitrary-precision decimal library for money arithmetic (addendum section 2.3). License: MIT; deterministic string-backed operations.     | Approved; alternative big.js lacks required rounding modes.             |
+## Rules the boundary enforces
 
-## Boundary rules
+1. **Money:** `pg` numeric and int8 response values parse to strings at the driver level; `decimal.js`
+   works only on canonical digit strings; no JavaScript `Number`/`parseInt`/`parseFloat` ever enters
+   monetary math (enforced in `lib/db/pg/`, `lib/money/decimal.ts`, and acceptance scripts).
+2. **Server boundary:** `pg`, the privileged Supabase client, and all data-plane modules sit in
+   server-only modules; a committed client-bundle secret scan (`scripts/check-bundle-secrets.sh`)
+   plus the existing English-only/prohibited-artifact scans guard releases.
+3. **No Google SDK / Distribution risk:** Google Drive integration deliberately uses direct REST
+   (service-account JWT) instead of the `googleapis` SDK to shrink surface area; credentials are
+   stored only AES-256-GCM-encrypted and decrypted on use inside server boundaries.
+4. **Audit:** `npm audit --omit=dev --audit-level=high` after install; results recorded in the
+   step handoff.
+5. **Versions:** exact pinned versions in `package.json` (npm default saving-disabled by this
+   record); all four added after product review of known risks (supabase-js SSR key handling,
+   pg numeric coercion pitfalls, decimal.js rounding mode default).
 
-- supabase-js service-role keys stay inside `lib/db/clients/privileged.ts` behind `server-only`.
-- pg is imported only under `scripts/db/` and `lib/db/driver/` (server-only).
-- decimal.js is the only permitted money-arithmetic library; raw Number is prohibited for money.
+## Post-install audit evidence
 
-## Verification
-
-- Exact versions pinned in package.json; lockfile updated by the integrator in this chat.
-- `npm audit` re-run after installation; findings recorded in the step handoff.
+Recorded in `docs/handoffs/STEP_02_COMPLETED.md` section "Verification evidence".

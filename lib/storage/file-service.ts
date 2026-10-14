@@ -103,7 +103,7 @@ export async function uploadEncryptedFile(
       id: duplicate.id,
       duplicateOf: duplicate.id,
       storageProvider: duplicate.storage_provider,
-      byteLength: Number.parseInt(duplicate.byte_length, 10),
+      byteLength: Number.parseInt(duplicate.byte_size, 10),
       encryptionKeyVersion: duplicate.encryption_key_version,
     };
   }
@@ -140,17 +140,16 @@ export async function uploadEncryptedFile(
       storageProvider: adapter.name,
       providerObjectId: ref.providerObjectId,
       category,
-      originalFilename: validated.originalFilename,
-      sanitizedFilename: checked.sanitizedFilename,
+      originalName: validated.originalFilename.slice(0, 250),
+      sanitizedName: checked.sanitizedFilename,
       mimeType: checked.resolvedMime,
-      byteLength: plaintextLength,
-      encryptionKeyVersion: keyVersion,
-      encryptionNonce: envelope.nonce,
-      encryptionTag: envelope.tag,
-      ciphertextSha256,
+      extension: checked.extension,
+      byteSize: plaintextLength,
+      encryptionCiphertextSha256: ciphertextSha256,
       plaintextHmac,
-      quarantineStatus: "clean",
-      publishedAt: new Date().toISOString(),
+      encryptionNonceB64: envelope.nonce.toString("base64"),
+      encryptionTagB64: envelope.tag.toString("base64"),
+      encryptionKeyVersion: keyVersion,
       uploadedBy: context.userId,
       metadata: { verifiedMime: checked.resolvedMime, integrity: ciphertextSha256 },
     });
@@ -196,15 +195,18 @@ export async function downloadDecryptedFile(
   fileId: string,
 ): Promise<DownloadedFile> {
   const record = await getFileRecord(context, fileId);
-  if (record.quarantine_status === "quarantined") {
+  if (record.upload_state !== "clean") {
     throw new ValidationError("This file is under security review and cannot be downloaded.");
+  }
+  if (record.encryption_nonce_b64 === null || record.encryption_tag_b64 === null) {
+    throw new ExternalServiceError("The encryption envelope for this file is incomplete.");
   }
   const adapter = await resolveStorageProvider(context, record.storage_provider);
   const ciphertext = await adapter.downloadObject({
     providerObjectId: record.provider_object_id,
     etag: null,
   });
-  if (sha256Hex(ciphertext) !== record.ciphertext_sha256) {
+  if (sha256Hex(ciphertext) !== record.encryption_ciphertext_sha256) {
     ciphertext.fill(0);
     throw new ExternalServiceError("Stored object failed integrity verification.");
   }
@@ -216,8 +218,8 @@ export async function downloadDecryptedFile(
     },
     {
       ciphertext,
-      nonce: record.encryption_nonce,
-      tag: record.encryption_tag,
+      nonce: Buffer.from(record.encryption_nonce_b64, "base64"),
+      tag: Buffer.from(record.encryption_tag_b64, "base64"),
       keyVersion: record.encryption_key_version,
     },
   );
@@ -264,7 +266,8 @@ export async function applyQuarantineVerdict(
   verdict: "quarantined" | "released",
 ): Promise<void> {
   const updated = await updateFileRecordVersioned(context, fileId, expectedVersion, {
-    quarantine_status: verdict,
+    upload_state: verdict === "quarantined" ? "quarantined" : "clean",
+    uploaded_at: verdict === "quarantined" ? undefined : new Date().toISOString(),
   });
   await appendAuditEvent(context, {
     actorType: "service",

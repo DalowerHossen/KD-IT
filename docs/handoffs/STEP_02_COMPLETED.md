@@ -21,7 +21,7 @@
 - Tables (16): `companies` (+ platform singleton), `memberships`, `configuration_entries`,
   `audit_events`, `command_approvals`, `command_approval_events`, `standing_grants`,
   `idempotency_keys`, `outbox_events`, `rate_limit_counters`, `queue_jobs`, `leader_locks`,
-  `storage_connections`, `file_records`, `file_quarantine`, `storage_migration_jobs`.
+  `storage_connections`, `file_records`, `file_quarantine`, `file_migration` (per-file state machine), `storage_migration_jobs` (bulk counters).
 - Migration runner scripts: `scripts/db/migrate.mjs`, `rollback.mjs`, `assert.mjs`, shared
   `scripts/db/lib/runner.mjs`; static convention linter `scripts/db/lint-migrations.mjs`
   (runs **without** a database).
@@ -48,7 +48,7 @@
   recomputes the chain inside SQL; `app.audit_append()` is the **only** insert path.
 - Generic `audit_mutation_trigger()` attached to: companies, memberships, configuration_entries,
   command_approvals, standing_grants, storage_connections, file_records, file_quarantine,
-  storage_migration_jobs. Queue dead-letter transitions audited through a filtered trigger.
+  file_migration, storage_migration_jobs. Queue dead-letter transitions audited through a filtered trigger.
   `audit_events`/`command_approval_events` have no audit trigger (anti-recursion).
 - Command approval foundation: statuses (`proposed -> awaiting_l2 -> awaiting_l3/step-up ->
 awaiting_confirmation -> approved -> executed` + rejected/expired/cancelled), `command_propose`
@@ -118,7 +118,7 @@ awaiting_confirmation -> approved -> executed` + rejected/expired/cancelled), `c
   reconstruction, SVG active-content rejection (script/event/foreignObject/javascript:),
   PDF active-content rejection (`/JavaScript`, `/OpenAction`, `/Launch`, `/EmbeddedFile`, ...),
   archive-bomb/polyglot guards, text-file binary sniffing, image EXIF stripping, JPEG polyglot
-  (markup-in-EXIF) rejection, MIME resolution result. Files with `quarantine_status <> 'clean'`
+  (markup-in-EXIF) rejection, MIME resolution result. Files with `upload_state <> 'clean'`
   can never become published (DB CHECK). Duplicates detected via the protected HMAC.
 
 ### I. Storage migration (`lib/storage/migrations.ts`)
@@ -192,7 +192,7 @@ afterwards.
    `app.audit_append` / RPCs / the privileged server boundary (asserted in SQL).
 5. **Storage provider naming policy -- reads honor recorded provider** (never "preferred at
    read time"), so migrations are deterministic and tenant-safe.
-6. **Quarantine publication invariant** enforced in SQL (`published_at` requires `quarantine_status
+6. **Clean-publication invariant** enforced in SQL (`uploaded_at` required when `upload_state
 = 'clean'`); the internal scanning job type is queued via `file.scan_quarantine`.
 7. **Dependencies added (integrator-reviewed, locked)**: `@supabase/supabase-js@2.117.3`,
    `pg@8.23.1`, `decimal.js@10.6.0`, `@types/pg@8.23.1` (dev). Record:

@@ -349,14 +349,12 @@ begin
 
   insert into app.file_records (
     company_id, storage_provider, provider_object_id, category,
-    original_filename, sanitized_filename, mime_type, byte_length,
-    encryption_key_version, encryption_nonce, encryption_tag,
-    ciphertext_sha256, plaintext_hmac
+    original_name, sanitized_name, mime_type, extension, byte_size,
+    encryption_ciphertext_sha256, plaintext_hmac
   )
   values (
     tenant_b, 'supabase_storage', 'probe/object-b', 'other',
-    'probe.txt', 'probe.txt', 'text/plain', 12,
-    1, decode('0102030405060708090a0b0c', 'hex'), decode('0102030405060708090a0b0c0d0e0f10', 'hex'),
+    'probe.txt', 'probe.txt', 'text/plain', '.txt', 12,
     repeat('a', 64), repeat('b', 64)
   );
 
@@ -373,14 +371,12 @@ begin
   begin
     insert into app.file_records (
       company_id, storage_provider, provider_object_id, category,
-      original_filename, sanitized_filename, mime_type, byte_length,
-      encryption_key_version, encryption_nonce, encryption_tag,
-      ciphertext_sha256, plaintext_hmac
+      original_name, sanitized_name, mime_type, extension, byte_size,
+      encryption_ciphertext_sha256, plaintext_hmac
     )
     values (
       tenant_a, 'supabase_storage', 'probe/inject', 'other',
-      'inject.txt', 'inject.txt', 'text/plain', 1,
-      1, decode('0102030405060708090a0b0c', 'hex'), decode('0102030405060708090a0b0c0d0e0f10', 'hex'),
+      'inject.txt', 'inject.txt', 'text/plain', '.txt', 1,
       repeat('c', 64), repeat('d', 64)
     );
   exception

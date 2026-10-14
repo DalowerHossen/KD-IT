@@ -1,0 +1,2 @@
+# path: .husky/pre-commit
+npm run quality:precommit

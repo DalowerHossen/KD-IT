@@ -20,7 +20,7 @@ Status vocabulary: `Planned`, `In Progress`, `Completed`, `Accepted`
 
 | Step | Scope | Prerequisite | Status | Handoff |
 |---:|---|---|---|---|
-| 01 | Foundation and shared application shell | Planning baseline | Planned | `docs/handoffs/STEP_01_COMPLETED.md` |
+| 01 | Foundation and shared application shell | Planning baseline | Accepted | `docs/handoffs/STEP_01_COMPLETED.md` |
 | 02 | Data plane, tenancy, audit, encryption, storage | Step 01 | Planned | `docs/handoffs/STEP_02_COMPLETED.md` |
 | 03 | Auth, roles, lockout, onboarding, SMTP, KYC | Step 02 | Planned | `docs/handoffs/STEP_03_COMPLETED.md` |
 | 04 | Invoicing, documents, PDF, print | Step 03 | Planned | `docs/handoffs/STEP_04_COMPLETED.md` |

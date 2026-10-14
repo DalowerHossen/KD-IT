@@ -1,0 +1,21 @@
+# path: .prettierignore
+node_modules
+.next
+out
+coverage
+package-lock.json
+next-env.d.ts
+public/design-tokens.json
+*.woff2
+*.log
+
+# Authoritative planning documents are preserved exactly as delivered.
+FEATURE_LIST.md
+MASTER_PROMPT.md
+REQUIREMENTS_ADDENDUM.md
+IMPLEMENTATION_PLAN.md
+REQUIREMENTS_TRACEABILITY.md
+PROVIDER_RESEARCH_PROTOCOL.md
+CHAT_INSTRUCTIONS.md
+EXECUTION_STATUS.md
+README.md

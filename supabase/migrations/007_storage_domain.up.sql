@@ -21,7 +21,8 @@ create table app.storage_connections (
   settings jsonb not null default '{}'::jsonb check (jsonb_typeof(settings) = 'object'),
   last_health_at timestamptz null,
   last_health_status text null check (last_health_status is null or last_health_status in ('healthy', 'degraded', 'unhealthy')),
-  last_health_message text null,
+  consecutive_failures integer not null default 0 check (consecutive_failures >= 0),
+  health_error text null,
   constraint storage_credentials_encrypted check (
     (credentials_ciphertext is null and credentials_nonce is null
      and credentials_tag is null and credentials_key_version is null)
@@ -458,12 +459,13 @@ end;
 $fn$;
 
 -- Atomic finalize: only valid from switching or retention; validates
--- ciphertext integrity hash before any provider flip.
+-- ciphertext integrity hash before any provider flip. Returns the completed
+-- migration row (authoritative switch evidence).
 create or replace function app.storage_fm_finalize(
   p_file_migration_id uuid,
   p_lock_version integer
 )
-returns app.file_records
+returns app.file_migration
 language plpgsql
 security definer
 set search_path = app, public, extensions
@@ -503,16 +505,16 @@ begin
       old_provider = v_file.storage_provider,
       old_object_id = v_file.provider_object_id,
       lock_version = lock_version + 1
-  where m.id = v_mig.id;
+  where m.id = v_mig.id
+  returning * into v_mig;
 
   update app.file_records fr
   set storage_provider = v_mig.target_provider,
       provider_object_id = v_mig.target_object_id,
       migration_state = 'stable'
-  where fr.id = v_file.id
-  returning * into v_file;
+  where fr.id = v_file.id;
 
-  return v_file;
+  return v_mig;
 end;
 $fn$;
 

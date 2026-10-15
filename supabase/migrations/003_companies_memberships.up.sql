@@ -82,6 +82,7 @@ create table app.configuration_entries (
   config_key text not null check (config_key ~ '^[a-z][a-z0-9_.]{1,120}$'),
   scope text not null default 'company' check (scope in ('platform', 'company')),
   value jsonb not null,
+  description text null,
   is_secret boolean not null default false,
   updated_by uuid null,
   correlation_id uuid null,

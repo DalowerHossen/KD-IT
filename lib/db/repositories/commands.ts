@@ -27,7 +27,7 @@ import {
  */
 
 export const COMMAND_COLUMNS =
-  "id, company_id, kind, payload, payload_hash, status, initiator_id, attestation, step_up_confirmed, dual_control_required, dual_confirmed_by, l2_approved_by, l2_approved_at, l3_approved_by, l3_approved_at, delegated_to, expires_at, executed_at, executed_by, execution_result, rejection_reason, rejected_reason_code, idempotency_key, created_at, updated_at, deleted_at, version";
+  "id, company_id, kind, payload, payload_hash, status, initiator_id, attestation, step_up_confirmed, dual_control_required, dual_confirmed_by, l2_approved_by, l2_approved_at, l3_approved_by, l3_approved_at, delegated_to, expires_at, executed_at, executed_by, execution_result, rejection_reason, idempotency_key, created_at, updated_at, deleted_at, version";
 
 async function runCommandRpc(
   context: TenantContext,

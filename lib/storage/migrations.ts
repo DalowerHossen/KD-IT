@@ -171,8 +171,14 @@ export async function runFileMigrationCycle(
          from app.file_migration
          where deleted_at is null
            and company_id = $1
-           and state in ('pending', 'failed')
            and retry_count < 5
+           and (
+             state in ('pending', 'failed')
+             or (
+               state in ('copying', 'verifying', 'switching')
+               and updated_at < clock_timestamp() - interval '10 minutes'
+             )
+           )
          order by created_at
          limit 10`,
         [context.companyId],
@@ -191,6 +197,21 @@ async function executeOneFileMigration(
   context: TenantContext,
   job: FileMigrationRow,
 ): Promise<boolean> {
+  // Stalled in-flight copy/verify rows are failed back; the next cycle
+  // retries them from the start (idempotent because no switch happened).
+  if (job.state === "copying" || job.state === "verifying") {
+    await transitionMigration(context, job.id, job.state, "failed", job.lock_version, {
+      error: "worker lease stalled; queued for retry",
+    }).catch(() => undefined);
+    return false;
+  }
+
+  // A row stuck in "switching" means the worker crashed after verification
+  // but before the atomic finalize RPC; drive finalize directly.
+  if (job.state === "switching") {
+    return completeSwitchingMigration(context, job, job.retention_until);
+  }
+
   let current: FileMigrationRow;
   try {
     current = await transitionMigration(
@@ -258,6 +279,36 @@ async function executeOneFileMigration(
       { retentionUntil },
     );
 
+    return await completeSwitchingMigration(context, current, retentionUntil);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "migration failure";
+    await transitionMigration(context, current.id, current.state, "failed", current.lock_version, {
+      error: message.slice(0, 300),
+    }).catch(() => undefined);
+    await appendAuditEvent(context, {
+      actorType: "worker",
+      action: "storage.migration_failed",
+      resourceType: "app.file_migration",
+      resourceId: current.id,
+      metadata: { fileId: current.file_id },
+    }).catch(() => undefined);
+    return false;
+  }
+}
+
+/**
+ * Atomic switch plus retention bookkeeping. Safe to re-drive: the
+ * database finalize is a single transaction and the purge job is deduped.
+ */
+async function completeSwitchingMigration(
+  context: TenantContext,
+  current: FileMigrationRow,
+  recordedRetentionUntil: string | null,
+): Promise<boolean> {
+  const retentionUntil =
+    recordedRetentionUntil ??
+    new Date(Date.now() + STORAGE_RETENTION_DAYS * 86_400_000).toISOString();
+  try {
     const finalized = await withPgTransaction(
       async (client) =>
         client.query(

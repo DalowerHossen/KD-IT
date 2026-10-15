@@ -16,7 +16,7 @@ import { uuidV7Schema } from "@/lib/validation/zod-helpers";
  */
 
 export const OUTBOX_COLUMNS =
-  "id, company_id, topic, payload, dedupe_key, correlation_id, occurred_at, published_at, attempts, next_attempt_at, last_error, created_at, updated_at, deleted_at, version";
+  "id, company_id, topic, payload, dedupe_key, correlation_id, occurred_at, published_at, attempts, publish_after, last_error, created_at, updated_at, deleted_at, version";
 
 export const outboxEventRowSchema = z.object({
   id: uuidV7Schema,
@@ -28,7 +28,7 @@ export const outboxEventRowSchema = z.object({
   occurred_at: z.string(),
   published_at: z.string().nullable(),
   attempts: z.number().int().min(0),
-  next_attempt_at: z.string(),
+  publish_after: z.string(),
   last_error: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),

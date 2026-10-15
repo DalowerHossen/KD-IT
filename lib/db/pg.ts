@@ -12,10 +12,14 @@ const { Pool, types } = pg;
  * Step 02 direct PostgreSQL surface (privileged, server-only). All money
  * and wide-counter columns are delivered as strings so binary floating
  * point can never enter monetary math; float8 response values are refused
- * entirely as a defense against accidental drift-prone columns.
+ * entirely as a defense against accidental drift-prone columns. Timestamp
+ * columns are also delivered as strings so repository row schemas and
+ * audit serialization never depend on Date instance identity.
  */
 types.setTypeParser(1700, (value: string): string => value); // numeric
 types.setTypeParser(20, (value: string): string => value); // int8
+types.setTypeParser(1184, (value: string): string => value); // timestamptz
+types.setTypeParser(1114, (value: string): string => value); // timestamp
 types.setTypeParser(701, (value: string): never => {
   throw new DatabaseError("float8 response columns are prohibited in this platform.", {
     details: { preview: value.slice(0, 20) },

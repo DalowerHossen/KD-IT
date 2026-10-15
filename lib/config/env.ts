@@ -58,6 +58,20 @@ const serverEnvSchema = z
     KD_DATABASE_URL: optionalNonEmpty,
     KD_ENCRYPTION_MASTER_KEY: masterKeySchema,
     KD_ENCRYPTION_KEY_VERSION: keyVersionSchema,
+    // Substep G: network and abuse protection.
+    KD_TURNSTILE_SECRET: optionalNonEmpty,
+    KD_TURNSTILE_ENFORCED: z.enum(["true", "false"]).optional(),
+    KD_NETWORK_RISK_ENFORCED: z.enum(["true", "false"]).optional(),
+    // Substep H: universal SMTP email.
+    KD_EMAIL_PROVIDER: z.enum(["supabase", "smtp"]).optional(),
+    KD_EMAIL_FROM: optionalNonEmpty,
+    KD_RESEND_API_KEY: optionalNonEmpty,
+    KD_RESEND_BASE_URL: optionalUrl,
+    KD_SMTP_HOST: optionalNonEmpty,
+    KD_SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+    KD_SMTP_SECURE: z.enum(["true", "false"]).optional(),
+    KD_SMTP_USERNAME: optionalNonEmpty,
+    KD_SMTP_PASSWORD: z.string().optional(),
   })
   .superRefine((env, context) => {
     const requireAll = (keys: readonly (keyof typeof env)[], reason: string): void => {

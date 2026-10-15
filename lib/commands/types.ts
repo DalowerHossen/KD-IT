@@ -1,19 +1,58 @@
 // path: lib/commands/types.ts
 import { z } from "zod";
 
+import { AUTH_ROLES, authRoleSchema, type AuthRole } from "@/lib/auth/roles";
 import { idempotencyKeySchema, uuidV7Schema } from "@/lib/validation/zod-helpers";
 
 /**
- * Step 02 privileged-command registry. Every privileged mutation carried
- * out by this platform runs through exactly one of these command kinds so
- * that approval routing, audit correlation, and execution evidence always
- * share one vocabulary. Later steps add their kinds here, never in parallel
+ * Privileged-command registry. Every privileged mutation carried out by
+ * this platform runs through exactly one of these command kinds so that
+ * approval routing, audit correlation, and execution evidence always share
+ * one vocabulary. Later steps add their kinds here, never in parallel
  * registries.
  */
 
-export const PLATFORM_ROLES = ["super_admin", "ceo", "admin_staff", "owner", "staff"] as const;
-export const platformRoleSchema = z.enum(PLATFORM_ROLES);
-export type PlatformRole = z.infer<typeof platformRoleSchema>;
+/**
+ * Single-source role aliases. The canonical typed role registry lives in
+ * lib/auth/roles.ts; this module re-exports it so role strings are never
+ * duplicated across registries.
+ */
+export const PLATFORM_ROLES = AUTH_ROLES;
+export const platformRoleSchema = authRoleSchema;
+export type PlatformRole = AuthRole;
+
+/**
+ * Step 03 approval action types, registered in the existing approval
+ * engine. Identity, team, company, SMTP, domain, billing, KYC, backup, and
+ * network-allowlist mutations each carry one of these kinds so the L1/L2/L3
+ * chain, idempotency, and execution evidence apply uniformly.
+ */
+export const STEP_03_COMMAND_KINDS = [
+  "auth.account.unlock",
+  "auth.account.activate",
+  "auth.role.assign",
+  "auth.permission.grant",
+  "auth.permission.revoke",
+  "team.invitation.send",
+  "team.invitation.revoke",
+  "team.ownership.transfer",
+  "company.profile.update",
+  "company.settings.update",
+  "company.security.update",
+  "smtp.platform.configure",
+  "smtp.tenant.configure",
+  "domain.request",
+  "domain.verify",
+  "billing.plan.publish",
+  "billing.coupon.issue",
+  "billing.subscription.change",
+  "kyc.application.submit",
+  "kyc.review.submit",
+  "kyc.decision.finalize",
+  "backup.request",
+  "security.allowlist.update",
+] as const;
+export type Step03CommandKind = (typeof STEP_03_COMMAND_KINDS)[number];
 
 export const COMMAND_KINDS = [
   "admin.company.create",
@@ -33,6 +72,7 @@ export const COMMAND_KINDS = [
   "storage.connection.disable",
   "storage.migrate",
   "audit.export",
+  ...STEP_03_COMMAND_KINDS,
 ] as const;
 export const commandKindSchema = z.enum(COMMAND_KINDS);
 export type CommandKind = z.infer<typeof commandKindSchema>;
@@ -71,6 +111,29 @@ export const REQUIRED_COMMAND_ROLES: Readonly<Record<CommandKind, readonly Platf
   "storage.connection.disable": ["super_admin", "ceo", "owner"],
   "storage.migrate": ["super_admin", "ceo", "owner"],
   "audit.export": ["super_admin", "ceo"],
+  "auth.account.unlock": ["super_admin", "ceo"],
+  "auth.account.activate": ["super_admin", "ceo"],
+  "auth.role.assign": ["super_admin", "ceo", "owner"],
+  "auth.permission.grant": ["super_admin", "ceo", "owner"],
+  "auth.permission.revoke": ["super_admin", "ceo", "owner"],
+  "team.invitation.send": ["super_admin", "ceo", "owner"],
+  "team.invitation.revoke": ["super_admin", "ceo", "owner"],
+  "team.ownership.transfer": ["super_admin", "ceo", "owner"],
+  "company.profile.update": ["super_admin", "ceo", "owner"],
+  "company.settings.update": ["super_admin", "ceo", "owner"],
+  "company.security.update": ["super_admin", "ceo", "owner"],
+  "smtp.platform.configure": ["super_admin", "ceo"],
+  "smtp.tenant.configure": ["super_admin", "ceo", "owner"],
+  "domain.request": ["super_admin", "ceo", "owner"],
+  "domain.verify": ["super_admin", "ceo"],
+  "billing.plan.publish": ["super_admin", "ceo"],
+  "billing.coupon.issue": ["super_admin", "ceo"],
+  "billing.subscription.change": ["super_admin", "ceo", "owner"],
+  "kyc.application.submit": ["owner"],
+  "kyc.review.submit": ["super_admin", "ceo", "admin_staff"],
+  "kyc.decision.finalize": ["super_admin", "ceo"],
+  "backup.request": ["super_admin", "ceo", "owner"],
+  "security.allowlist.update": ["super_admin", "ceo"],
 };
 
 export function requiredRolesFor(kind: CommandKind): readonly PlatformRole[] {
@@ -160,11 +223,13 @@ export const commandRowSchema = z.object({
 });
 export type CommandRow = z.infer<typeof commandRowSchema>;
 
+export const standingGrantScopeSchema = z.string().regex(/^[a-z][a-z0-9_.:*-]{1,120}$/);
+
 export const standingGrantRowSchema = z.object({
   id: uuidV7Schema,
   company_id: uuidV7Schema,
   subject_id: uuidV7Schema,
-  scope: z.string().regex(/^[a-z][a-z0-9_.:-]{1,120}$/),
+  scope: standingGrantScopeSchema,
   granted_by: uuidV7Schema,
   valid_from: z.string().datetime(),
   valid_until: z.string().datetime(),

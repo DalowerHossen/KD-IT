@@ -10,8 +10,10 @@ import {
   tenantContextSettings,
 } from "@/lib/db/tenant-context";
 import { appendAuditEvent } from "@/lib/db/repositories/audit";
+import { ApprovalRequiredError } from "@/lib/auth/errors";
 import { ForbiddenError, NotFoundError } from "@/lib/errors/app-errors";
 import {
+  type CommandKind,
   type CommandRow,
   type ProposeCommandInput,
   commandRowSchema,
@@ -218,6 +220,33 @@ export async function listCommands(
     tenantContextSettings(context),
   );
   return z.array(commandRowSchema).parse(result.rows);
+}
+
+/**
+ * Verifies discrete approval evidence for a state-changing action. The
+ * command must exist inside the active boundary, match the expected kind,
+ * and be approved or already executed. Every other state, including a
+ * missing command, denies with one generic error so command existence and
+ * approval progress cannot be enumerated by callers.
+ */
+export async function assertApprovedCommandFor(
+  context: TenantContext,
+  commandId: string,
+  expectedKind: CommandKind,
+): Promise<CommandRow> {
+  let command: CommandRow;
+  try {
+    command = await getCommandById(context, commandId);
+  } catch {
+    throw new ApprovalRequiredError();
+  }
+  if (
+    command.kind !== expectedKind ||
+    (command.status !== "approved" && command.status !== "executed")
+  ) {
+    throw new ApprovalRequiredError();
+  }
+  return command;
 }
 
 /** Step-up executed with audit correlation by callers at route level. */

@@ -20,11 +20,13 @@ const STORAGE_TIMEOUT_MS = 30_000;
 
 export class SupabaseStorageAdapter implements StorageProviderAdapter {
   readonly name = "supabase_storage" as const;
+  private readonly bucket: string;
 
-  constructor(private readonly bucket: string = DEFAULT_STORAGE_BUCKET) {
+  constructor(bucket: string = DEFAULT_STORAGE_BUCKET) {
     if (!/^[a-z][a-z0-9-]{2,60}$/.test(bucket)) {
       throw new ExternalServiceError("Supabase storage bucket name is invalid.");
     }
+    this.bucket = bucket;
   }
 
   private storage(): ReturnType<ReturnType<typeof getPrivilegedSupabaseClient>["storage"]["from"]> {

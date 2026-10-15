@@ -1,6 +1,9 @@
 // path: lib/navigation/route-metadata.ts
 import type { LucideIcon } from "lucide-react";
 
+import { type PermissionCode as RegistryPermissionCode } from "@/lib/auth/permissions";
+import { AUTH_ROLES, type AuthRole } from "@/lib/auth/roles";
+
 /**
  * Navigation contract types. The central navigation map (config/nav-map.ts)
  * is the single source of truth registered against these types. Page-owning
@@ -9,16 +12,16 @@ import type { LucideIcon } from "lucide-react";
 export type RouteSection = "public" | "auth" | "dashboard" | "admin" | "portal";
 
 /**
- * Authenticated role order from the requirements addendum. Declared once here
- * because navigation filtering consumes it; the Step 03 permission registry
- * imports this contract instead of redefining the role list.
+ * Single-source role and permission aliases. The canonical typed registries
+ * live in lib/auth/roles.ts and lib/auth/permissions.ts; navigation
+ * re-exports them so role and permission strings are never duplicated.
  */
-export const ROLE_ORDER = ["super_admin", "ceo", "admin_staff", "owner", "staff"] as const;
+export const ROLE_ORDER = AUTH_ROLES;
 
-export type AppRole = (typeof ROLE_ORDER)[number];
+export type AppRole = AuthRole;
 
-/** Permission codes follow the "domain.action" convention, e.g. invoices.read. */
-export type PermissionCode = `${string}.${string}`;
+/** Permission codes come from the central registry, e.g. team.invite. */
+export type PermissionCode = RegistryPermissionCode;
 
 export interface RouteAccess {
   /** Roles allowed to see the entry; undefined means every visitor. */

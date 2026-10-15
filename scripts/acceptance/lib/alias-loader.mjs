@@ -11,6 +11,12 @@ import path from "node:path";
 const ROOT = path.resolve(".");
 const EXTENSIONS = [".ts", ".tsx", ".mts", ".cts", ".mjs", ".js"];
 
+/**
+ * Next.js subpath imports are extensionless in source ("next/headers");
+ * native ESM resolution requires the .js file. Map the common ones.
+ */
+const NEXT_SUBPATHS = new Set(["next/headers", "next/navigation", "next/image", "next/dynamic"]);
+
 function withExtension(target) {
   if (existsSync(target) && !target.endsWith("/")) {
     return target;
@@ -25,6 +31,9 @@ function withExtension(target) {
 }
 
 export async function resolve(specifier, context, nextResolve) {
+  if (NEXT_SUBPATHS.has(specifier)) {
+    return nextResolve(`${specifier}.js`, context);
+  }
   if (specifier.startsWith("@/")) {
     const basePath = path.join(ROOT, specifier.slice(2));
     const target = pathToFileURL(withExtension(basePath)).href;

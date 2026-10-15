@@ -5,6 +5,7 @@ import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import Link from "next/link";
 import {
   useCallback,
+  useMemo,
   useState,
   useSyncExternalStore,
   type ReactElement,
@@ -19,8 +20,9 @@ import { ShortcutReference } from "@/components/navigation/shortcut-reference";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { getNavSection } from "@/config/nav-map";
 import { strings } from "@/lib/i18n/strings/en";
-import type { NavSection } from "@/lib/navigation/route-metadata";
+import type { RouteSection } from "@/lib/navigation/route-metadata";
 import { cn } from "@/lib/utils/cn";
 
 const SIDEBAR_STORAGE_KEY = "kd.sidebar.collapsed";
@@ -54,7 +56,13 @@ function useSidebarCollapsed(): readonly [boolean, () => void] {
 }
 
 export interface AppShellProps {
-  readonly sections: readonly NavSection[];
+  /**
+   * Section ids, not prebuilt sections: the navigation map carries Lucide
+   * component functions (icons), which cannot cross the server-to-client
+   * boundary. Resolving here keeps the map the single source of truth while
+   * keeping every value that crosses the boundary serializable.
+   */
+  readonly sectionIds: readonly RouteSection[];
   readonly user?: ShellUser;
   readonly onOpenSettings?: () => void;
   readonly onSignOut?: () => void;
@@ -67,7 +75,7 @@ export interface AppShellProps {
  * drawer, offline banner, breadcrumbs, command palette, and centered content.
  */
 export function AppShell({
-  sections,
+  sectionIds,
   user,
   onOpenSettings,
   onSignOut,
@@ -75,6 +83,7 @@ export function AppShell({
 }: AppShellProps): ReactElement {
   const [collapsed, toggleCollapsed] = useSidebarCollapsed();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const sections = useMemo(() => sectionIds.map((id) => getNavSection(id)), [sectionIds]);
 
   return (
     <div className="bg-background flex min-h-dvh">

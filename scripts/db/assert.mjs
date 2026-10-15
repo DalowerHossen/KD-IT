@@ -1,7 +1,8 @@
 // path: scripts/db/assert.mjs
-// Runs the Step 02 SQL assertion suite (RLS, grants, constraints, UUID v7,
-// tenant isolation, approval chain, queue primitives) against the database
-// referenced by KD_DATABASE_URL. Exits non-zero on the first violation.
+// Runs every SQL assertion suite in supabase/assertions in sorted order
+// (RLS, grants, constraints, UUID v7, tenant isolation, approval chain,
+// queue primitives, identity records) against the database referenced by
+// KD_DATABASE_URL. Exits non-zero on the first violation.
 
 import { runAssertions } from "./lib/runner.mjs";
 

@@ -73,6 +73,50 @@ export class ConflictError extends AppError {
   }
 }
 
+/**
+ * The session is authenticated but has not reached the assurance level its
+ * roles require (second factor pending). Carries machine-readable details so
+ * the client can present the MFA challenge or enrollment instead of a
+ * generic denial.
+ */
+export class MfaRequiredError extends AppError {
+  constructor(
+    message = "Two-factor verification is required to continue.",
+    options?: AppErrorOptions & {
+      readonly requiredLevel?: "aal1" | "aal2";
+      readonly mustEnroll?: boolean;
+    },
+  ) {
+    super(ERROR_CODES.MFA_REQUIRED, 403, message, {
+      ...options,
+      details: {
+        requiredLevel: options?.requiredLevel ?? "aal2",
+        mustEnroll: options?.mustEnroll ?? false,
+      },
+    });
+  }
+}
+
+/**
+ * A critical action needs a fresh second-factor verification (step-up) that
+ * is older than the reauthentication window. The client re-prompts the MFA
+ * challenge; the pending action is retried once the session is fresh again.
+ */
+export class ReauthRequiredError extends AppError {
+  constructor(
+    message = "Verify your identity again to continue.",
+    options?: AppErrorOptions & { readonly actionId?: string },
+  ) {
+    super(ERROR_CODES.REAUTH_REQUIRED, 403, message, {
+      ...options,
+      details: {
+        ...(options?.details ?? {}),
+        ...(options?.actionId ? { actionId: options.actionId } : {}),
+      },
+    });
+  }
+}
+
 export class RateLimitError extends AppError {
   constructor(message = "Too many requests. Please try again later.", options?: AppErrorOptions) {
     super(ERROR_CODES.RATE_LIMITED, 429, message, options);

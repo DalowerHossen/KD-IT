@@ -2,7 +2,6 @@
 import type { ReactElement, ReactNode } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
-import { getNavSection } from "@/config/nav-map";
 
 /**
  * Tenant workspace layout contract. Owning steps register their dashboard
@@ -14,5 +13,5 @@ export default function DashboardLayout({
 }: {
   readonly children: ReactNode;
 }): ReactElement {
-  return <AppShell sections={[getNavSection("dashboard")]}>{children}</AppShell>;
+  return <AppShell sectionIds={["dashboard"]}>{children}</AppShell>;
 }

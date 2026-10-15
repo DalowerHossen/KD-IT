@@ -1,4 +1,6 @@
 // path: components/design-system/shell-previews.tsx
+"use client";
+
 import { LockKeyhole } from "lucide-react";
 import type { ReactElement } from "react";
 

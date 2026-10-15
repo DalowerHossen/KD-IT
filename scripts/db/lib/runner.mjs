@@ -19,7 +19,7 @@ types.setTypeParser(701, (value) => {
 });
 
 const MIGRATIONS_DIR = path.resolve("supabase/migrations");
-const ASSERTIONS_FILE = path.resolve("supabase/assertions/step-02-assert.sql");
+const ASSERTIONS_DIR = path.resolve("supabase/assertions");
 
 function log(level, message, context) {
   const entry = {
@@ -160,17 +160,31 @@ export async function migrateDown(steps) {
 
 export async function runAssertions() {
   const client = await connect();
-  const notices = [];
-  client.on("notice", (notice) => {
-    notices.push(notice.message);
-  });
   try {
-    const sql = await readFile(ASSERTIONS_FILE, "utf8");
-    await client.query(sql);
-    for (const line of notices.filter((line) => line.startsWith("assert."))) {
-      log("info", line, {});
+    const files = (await readdir(ASSERTIONS_DIR)).filter((file) => file.endsWith(".sql")).sort();
+    if (files.length === 0) {
+      throw new Error(`No assertion suites found in ${ASSERTIONS_DIR}.`);
     }
-    log("info", "assert.complete", { notices: notices.length });
+    for (const file of files) {
+      const notices = [];
+      const onNotice = (notice) => {
+        notices.push(notice.message);
+      };
+      client.on("notice", onNotice);
+      try {
+        const sql = await readFile(path.join(ASSERTIONS_DIR, file), "utf8");
+        await client.query(sql);
+      } finally {
+        client.removeListener("notice", onNotice);
+      }
+      for (const line of notices.filter(
+        (line) => line.startsWith("assert.") || line.startsWith("assert03a."),
+      )) {
+        log("info", line, { suite: file });
+      }
+      log("info", "assert.suite_complete", { suite: file, notices: notices.length });
+    }
+    log("info", "assert.complete", { suites: files.length });
   } finally {
     await client.end();
   }

@@ -8,7 +8,7 @@
 export const CORRELATION_ID_HEADER = "x-correlation-id";
 export const NONCE_HEADER = "x-nonce";
 
-const CORRELATION_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+export const CORRELATION_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
 export function isValidCorrelationId(value: string | null | undefined): value is string {
   return typeof value === "string" && CORRELATION_ID_PATTERN.test(value);

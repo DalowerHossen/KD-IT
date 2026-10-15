@@ -48,6 +48,17 @@ export function Button({
   ...props
 }: ButtonProps): ReactElement {
   const Comp = asChild ? Slot : "button";
+  // Radix Slot merges exactly one child element. The spinner and busy state
+  // belong to the native button form only, so the asChild path hands the
+  // Slot a single child (its consumers own their interactive content).
+  const slotChild = asChild ? (
+    children
+  ) : (
+    <>
+      {isLoading ? <Spinner size="sm" label="Working" /> : null}
+      {children}
+    </>
+  );
   return (
     <Comp
       className={cn(buttonVariants({ variant, size }), className)}
@@ -56,8 +67,7 @@ export function Button({
       aria-busy={isLoading || undefined}
       {...props}
     >
-      {isLoading ? <Spinner size="sm" label="Working" /> : null}
-      {children}
+      {slotChild}
     </Comp>
   );
 }

@@ -87,9 +87,11 @@ interface CachedToken {
 export class GoogleDriveStorageAdapter implements StorageProviderAdapter {
   readonly name = "google_drive" as const;
   private cachedToken: CachedToken | null = null;
+  private readonly credentials: DriveCredentials;
 
-  constructor(private readonly credentials: DriveCredentials) {
+  constructor(credentials: DriveCredentials) {
     driveCredentialsSchema.parse(credentials);
+    this.credentials = credentials;
   }
 
   private async accessToken(): Promise<string> {

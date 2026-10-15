@@ -2,7 +2,6 @@
 import type { ReactElement, ReactNode } from "react";
 
 import { AppShell } from "@/components/layout/app-shell";
-import { getNavSection } from "@/config/nav-map";
 
 /**
  * Platform administration layout contract for the super_admin, ceo, and
@@ -10,5 +9,5 @@ import { getNavSection } from "@/config/nav-map";
  * owning steps through the central navigation map.
  */
 export default function AdminLayout({ children }: { readonly children: ReactNode }): ReactElement {
-  return <AppShell sections={[getNavSection("admin")]}>{children}</AppShell>;
+  return <AppShell sectionIds={["admin"]}>{children}</AppShell>;
 }

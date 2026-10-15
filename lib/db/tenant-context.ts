@@ -10,7 +10,8 @@ import {
   platformRoleSchema,
   requiredRolesFor,
 } from "@/lib/commands/types";
-import { uuidV7Schema } from "@/lib/validation/zod-helpers";
+import { CORRELATION_ID_PATTERN } from "@/lib/logging/correlation";
+import { genericUuidSchema, uuidV7Schema } from "@/lib/validation/zod-helpers";
 
 /**
  * Step 02 request-scoped tenant context. Repositories never resolve a
@@ -21,11 +22,19 @@ import { uuidV7Schema } from "@/lib/validation/zod-helpers";
  */
 export const PLATFORM_COMPANY_ID = "00000000-0000-7000-8000-000000000001";
 
+/**
+ * Step 03 substep B correction: user ids are Supabase Auth UUIDv4 values,
+ * not UUIDv7, and correlation ids follow the shared correlation pattern
+ * (UUIDv4 when minted here, opaque tokens when propagated inbound). Company
+ * ids stay UUIDv7. Callers constructing pre-authentication contexts pass
+ * the unknown-subject marker and the least-privilege staff role; such
+ * contexts authorize ownership-scoped reads only, never role decisions.
+ */
 export const tenantContextSchema = z.object({
   companyId: uuidV7Schema,
-  userId: uuidV7Schema,
+  userId: genericUuidSchema,
   role: platformRoleSchema,
-  correlationId: uuidV7Schema,
+  correlationId: z.string().regex(CORRELATION_ID_PATTERN),
   isPlatform: z.boolean(),
 });
 

@@ -1,3 +1,5 @@
+// path: FEATURE_LIST.md
+
 KD SOLUTION IT — সম্পূর্ণ ফিচার তালিকা (চূড়ান্ত সংস্করণ)
 📋 মাস্টার সিদ্ধান্তসমূহ
 🌐 প্ল্যাটফর্ম মূল নীতি
@@ -6,20 +8,19 @@ KD SOLUTION IT — সম্পূর্ণ ফিচার তালিকা (
 •	ভাষা: English ONLY (zero tolerance for other languages)
 •	মুদ্রা: USD ONLY (display currencies allowed)
 •	ডেটা স্টোরেজ:
-•	টেক্সট/স্ট্রাকচার্ড → Supabase (PostgreSQL) 
-•	ফাইল/মিডিয়া → Google Drive (AES-256 encrypted), Google Drive, বা অন্য কোন ক্লাউড ড্রাইভ লিংক করা না থকলে Supabase সব ডাটা থাকবে।
-•	সব ডেটা AES-256 এনক্রিপ্টেড
-👥 Role Model (৩টি রোল)
+•	টেক্সট/স্ট্রাকচার্ড → Supabase PostgreSQL সব সময়
+•	ফাইল/মিডিয়া → tenant Google Drive connected এবং healthy হলে AES-256-GCM encrypted Google Drive
+•	Google Drive connected না থাকলে → AES-256-GCM encrypted Supabase Storage
+•	Preferred provider unavailable হলে healthy alternate provider runtime fallback
+•	প্রতিটি file record-এ storage_provider এবং integrity metadata থাকবে
+👥 Role Model (৫টি authenticated role + tokenized client)
 রোল	ব্যবহারকারী
-super_admin
-	KD SOLUTION IT (আমি)
-
-CEO	super_admin-এর কর্মচারী
-Account	super_admin-এর কর্মচারী
-Bloger	super_admin-এর কর্মচারী
-KYC Manager	super_admin-এর কর্মচারী
-owner	গ্রাহক (ফ্রিল্যান্সার/ব্যবসায়ী)
+super_admin	KD SOLUTION IT platform authority
+ceo	super_admin-এর অধীনে platform operational authority
+admin_staff	permission-scoped platform worker
+owner	গ্রাহক প্রতিষ্ঠানের মালিক
 staff	owner-এর কর্মচারী
+client	কোনো login role নয়; signed token access only
 
 A. ব্র্যান্ড ও ডিজাইন সিস্টেম
 A1. প্ল্যাটফর্ম ব্র্যান্ডিং
@@ -196,7 +197,7 @@ D4. সাকসেস স্টেট
 149.	সাকসেস রিডাইরেক্ট (with countdown)
 D5. সাধারণ নিয়ম
 150.	কোনো ফাঁকা সাদা স্ক্রিন নয়
-151.	কোনো "Coming soon" নয়
+151.	কোনো non-functional placeholder copy নয়
 152.	কোনো placeholder টেক্সট (lorem ipsum) নয়
 153.	প্রতিটি টেবিলে pagination + sort + filter
 154.	প্রতিটি ফর্মে inline validation + disabled submit
@@ -417,8 +418,8 @@ J2. কনসিস্টেন্সি রুল
 333.	টোস্ট পজিশন কনসিস্টেন্ট
 334.	কনফার্মেশন ভাষা কনসিস্টেন্ট
 J3. ভিজ্যুয়াল QA
-335.	ভিজ্যুয়াল রিগ্রেশন স্ন্যাপশট (CI)
-336.	স্ক্রিনশট টেস্ট (Playwright)
+335.	ভিজ্যুয়াল রিগ্রেশন audit snapshot (CI, non-test artifact)
+336.	Browser screenshot acceptance audit (Playwright script)
 337.	কম্পোনেন্ট গ্যালারি (Storybook, optional)
 338.	ডার্ক মোড পরীক্ষা (every component)
 339.	মোবাইল 320px পরীক্ষা (every page)
@@ -539,8 +540,8 @@ A4. সেশন ম্যানেজমেন্ট
 438.	সন্দেহজনক লগইন অ্যালার্ট (unusual IP/location)
 439.	সেশন হাইজ্যাকিং ডিটেকশন (IP change mid-session)
 A5. লগইন সিকিউরিটি
-440.	ব্রুট-ফোর্স লকআউট (2 failed → 60 min lock)
-441.	এক্সপোনেনশিয়াল ব্যাকঅফ (lock duration increases)
+440.	অ্যাকাউন্ট লকআউট (2 consecutive password/2FA failures → 2-hour lock)
+441.	লক state database-persistent; correct credentials/password reset/password change লক clear করবে না
 442.	লগইন ভেলোসিটি চেক (too many logins per hour)
 443.	IP-ভিত্তিক লগইন রেট লিমিট
 444.	ডিসপোজেবল ইমেইল ব্লক (signup)
@@ -908,22 +909,22 @@ I4. এনটাইটেলমেন্ট ইঞ্জিন
 731.	লিমিট-ছোঁয়া আপগ্রেড প্রম্পট (in-app)
 732.	প্ল্যান লিমিট এনফোর্সমেন্ট (server-side)
 ________________________________________
-J. গেটওয়ে সেটিংস (Owner)
+J. গেটওয়ে সেটিংস (Super Admin only; mandatory 2FA + fresh reauthentication)
 J1. গেটওয়ে কনফিগারেশন
-733.	গেটওয়ে কী সেটিংস (AES-256 encrypted)
-734.	Stripe API কী (publishable + secret)
-735.	PayPal ক্লায়েন্ট ID/সিক্রেট
-736.	Paddle Vendor ID/Auth Code
-737.	NMI Security Key/Source Key
-738.	Rapyd API কী
-739.	Adyen API কী
-740.	কাস্টম গেটওয়ে কী (any provider)
-741.	গেটওয়ে স্যান্ডবক্স/টেস্ট মোড টগল
-742.	গেটওয়ে enable/disable (per gateway)
-743.	ডিফল্ট গেটওয়ে সিলেক্ট
-744.	গেটওয়ে ফলব্যাক অর্ডার (drag-drop)
-745.	গেটওয়ে কানেকশন টেস্ট (per gateway)
-746.	গেটওয়ে হেলথ স্ট্যাটাস (per gateway)
+733.	গেটওয়ে credential settings (AES-256-GCM encrypted; environment-held master key)
+734.	Code-defined 16-adapter credential schema registry
+735.	Saved credential আর display হবে না; masked suffix এবং updated_at only
+736.	Credential rotation with approval, version check এবং immutable audit
+737.	Per-adapter mode schema; same provider-এ exactly one active mode
+738.	Mode change-এর আগে target mode successful test required
+739.	Unknown/unimplemented provider identifier reject
+740.	Custom HTTPS adapter modeled credentials only; arbitrary provider code নিষিদ্ধ
+741.	Official sandbox/test mode control (per gateway)
+742.	Successful current connection test-এর পরে enable; disable audited
+743.	Deterministic gateway routing rule selection
+744.	No matching rule হলে reject; implicit gateway fallback order নিষিদ্ধ
+745.	Non-destructive gateway connection test (per gateway)
+746.	গেটওয়ে health status (per gateway, secrets redacted)
 J2. Global Payout Partners সেটিংস
 747.	Global Payout Partners enable/disable
 748.	Local Payment Methods via Licensed Partners কনফিগ
@@ -1515,21 +1516,22 @@ O2. বাল্ক অ্যাকশন
 1241.	বাল্ক স্ট্যাটাস চেঞ্জ
 1242.	বাল্ক অ্যাকশনে সংখ্যা-সহ নিশ্চিতকরণ ("Delete 47 invoices?")
 A. পেমেন্ট গেটওয়ে ফ্রেমওয়ার্ক
+Authoritative 16-adapter catalog, official documentation gate, and provider-wave ownership → REQUIREMENTS_ADDENDUM.md + PROVIDER_RESEARCH_PROTOCOL.md
 A1. গেটওয়ে আর্কিটেকচার
 1243.	প্লাগেবল গেটওয়ে অ্যাডাপ্টার লেয়ার (abstract interface)
 1244.	গেটওয়ে কনফিগ স্কিমা (JSON-driven, per gateway)
-1245.	গেটওয়ে রেজিস্ট্রি (auto-discovery of installed gateways)
-1246.	গেটওয়ে enable/disable টগল (per tenant, per gateway)
-1247.	গেটওয়ে স্যান্ডবক্স/টেস্ট মোড (per gateway)
-1248.	গেটওয়ে হেলথ চেক (connection test, per gateway)
-1249.	গেটওয়ে এরর লগ (per gateway, per transaction)
-1250.	ডিফল্ট গেটওয়ে প্রায়োরিটি (per tenant)
-1251.	গেটওয়ে ফলব্যাক চেইন (primary → secondary → tertiary → manual)
-1252.	চেকআউটে পদ্ধতি নির্বাচন (client-facing, dynamic)
-1253.	কাস্টম গেটওয়ে অ্যাড (admin, plug any API)
-1254.	গেটওয়ে ওয়েবহুক রিসিভার (per gateway)
+1245.	Code-defined gateway registry (exactly 16 implemented adapters)
+1246.	গেটওয়ে enable/disable টগল (super_admin control, per tenant/provider)
+1247.	গেটওয়ে official sandbox/test mode (per gateway)
+1248.	গেটওয়ে non-destructive connection test; success required before enable
+1249.	গেটওয়ে redacted structured error log (per gateway, per transaction)
+1250.	Deterministic gateway routing rules (per tenant)
+1251.	কোনো routing rule match না হলে fail-closed rejection; implicit processor fallback নিষিদ্ধ
+1252.	চেকআউটে eligible পদ্ধতি নির্বাচন (client-facing, dynamic)
+1253.	Code-defined Custom HTTPS adapter configuration only; dynamic adapter creation নিষিদ্ধ
+1254.	গেটওয়ে ওয়েবহুক রিসিভার (registry-dispatched per gateway)
 1255.	গেটওয়ে ওয়েবহুক raw-body প্রিজার্ভেশন
-1256.	গেটওয়ে ওয়েবহুক HMAC সিগনেচার যাচাই
+1256.	গেটওয়ে official signature algorithm যাচাই
 1257.	গেটওয়ে ওয়েবহুক idempotency (processed_events table)
 1258.	গেটওয়ে ওয়েবহুক রিপ্লে উইন্ডো (±৫ মিনিট)
 1259.	গেটওয়ে ওয়েবহুক রিট্রাই (exponential backoff)
@@ -1573,16 +1575,16 @@ A4. Paddle ইন্টিগ্রেশন
 1294.	Paddle Tax (auto VAT/GST)
 1295.	Paddle স্যান্ডবক্স মোড
 A5. NMI ইন্টিগ্রেশন
-1296.	NMI Security Key/Source Key (encrypted)
-1297.	NMI Three-Step Redirect (3DS compliant)
-1298.	NMI Direct Post (server-to-server)
-1299.	NMI টোকেনাইজেশন (save card securely)
-1300.	NMI রিকারিং বিলিং (subscription)
-1301.	NMI ACH/eCheck সাপোর্ট (US bank)
-1302.	NMI Webhooks
-1303.	NMI রিফান্ড/Void
-1304.	NMI ফ্রড স্কোরিং
-1305.	NMI স্যান্ডবক্স মোড
+1296.	NMI Security Key/Source Key (AES-256-GCM encrypted)
+1297.	NMI Collect.js default mode; token single-use এবং 24-hour expiry
+1298.	NMI Payment Component mode; official npm package via integrator dependency approval
+1299.	দুই frontend mode-এ hosted card fields only; platform card data read/store করবে না
+1300.	দুই mode-এর shared server-side NMI REST payment module; documented recurring/ACH capability included
+1301.	Super-admin mode control; একই সময়ে exactly one active mode
+1302.	Target mode successful sandbox test-এর পরে switch; test এবং switch audited
+1303.	NMI signed webhook verification এবং idempotent processing
+1304.	NMI refund/void/fraud signal normalized handling
+1305.	NMI official sandbox mode এবং redacted acceptance evidence
 A6. Rapyd ইন্টিগ্রেশন
 1306.	Rapyd Access Key/Secret Key (encrypted)
 1307.	Rapyd Checkout Page (hosted)
@@ -1591,7 +1593,7 @@ A6. Rapyd ইন্টিগ্রেশন
 1310.	Rapyd Payout API (global, 100+ countries)
 1311.	Rapyd Webhooks (payment_completed, payout_completed)
 1312.	Rapyd Local Payment Methods (Asia, LATAM, Europe)
-1313.	Rapyd FX (multi-currency conversion)
+1313.	Rapyd FX quote for read-only display; platform charge and settlement remain USD
 1314.	Rapyd KYC (optional, built-in)
 1315.	Rapyd স্যান্ডবক্স মোড
 1316.	Rapyd Compliance (per country)
@@ -1603,7 +1605,7 @@ A7. Adyen ইন্টিগ্রেশন
 1321.	Adyen Recurring (saved cards, subscriptions)
 1322.	Adyen 3D Secure 2
 1323.	Adyen Risk Management (RevenueProtect)
-1324.	Adyen Multi-currency
+1324.	Adyen local display quote only; platform charge and settlement remain USD
 1325.	Adyen Local Payment Methods (250+ methods)
 1326.	Adyen MarketPay (platform/MoR mode)
 1327.	Adyen স্যান্ডবক্স মোড
@@ -1631,8 +1633,8 @@ B1. Global Payout Partners ফ্রেমওয়ার্ক
 1345.	পেমেন্ট মেথড আইকন/লোগো (checkout display)
 1346.	পেমেন্ট মেথড নির্দেশিকা (client-facing instructions)
 B2. বাংলাদেশ (Local Payment Methods via Licensed Partners)
-1347.	Local Payment Methods via Licensed Partners — Mobile Wallet A (bKash-type)
-1348.	Local Payment Methods via Licensed Partners — Mobile Wallet B (Nagad-type)
+1347.	Local Payment Methods via Licensed Partners — Bangladesh Mobile Wallet A
+1348.	Local Payment Methods via Licensed Partners — Bangladesh Mobile Wallet B
 1349.	Local Payment Methods via Licensed Partners — Bank Transfer (BD Bank)
 1350.	BD Bank পেমেন্ট ভেরিফিকেশন (manual + auto)
 1351.	BD Bank পে-আউট (owner → bank)
@@ -1645,16 +1647,16 @@ B3. USA (Local Payment Methods via Licensed Partners)
 1357.	NACHA ফাইল জেনারেশন (batch ACH)
 1358.	ACH রিটার্ন হ্যান্ডলিং
 B4. এশিয়া-প্যাসিফিক (Local Payment Methods via Licensed Partners)
-1359.	Local Payment Methods via Licensed Partners — India (UPI-type)
-1360.	Local Payment Methods via Licensed Partners — Philippines (GCash-type)
-1361.	Local Payment Methods via Licensed Partners — Thailand (PromptPay-type)
-1362.	Local Payment Methods via Licensed Partners — Singapore (PayNow-type)
-1363.	Local Payment Methods via Licensed Partners — China (Alipay/WeChat-type, optional)
-1364.	Local Payment Methods via Licensed Partners — Malaysia (DuitNow-type)
-1365.	Local Payment Methods via Licensed Partners — Vietnam (MoMo-type)
-1366.	Local Payment Methods via Licensed Partners — Indonesia (OVO/GoPay-type)
-1367.	Local Payment Methods via Licensed Partners — Japan (PayPay-type)
-1368.	Local Payment Methods via Licensed Partners — South Korea (KakaoPay-type)
+1359.	Local Payment Methods via Licensed Partners — India Method
+1360.	Local Payment Methods via Licensed Partners — Philippines Method
+1361.	Local Payment Methods via Licensed Partners — Thailand Method
+1362.	Local Payment Methods via Licensed Partners — Singapore Method
+1363.	Local Payment Methods via Licensed Partners — China Method
+1364.	Local Payment Methods via Licensed Partners — Malaysia Method
+1365.	Local Payment Methods via Licensed Partners — Vietnam Method
+1366.	Local Payment Methods via Licensed Partners — Indonesia Method
+1367.	Local Payment Methods via Licensed Partners — Japan Method
+1368.	Local Payment Methods via Licensed Partners — South Korea Method
 B5. Global Payout Partners ম্যানেজমেন্ট
 1369.	Partner কনফিগারেশন (API keys, endpoints, encrypted)
 1370.	Partner হেলথ মনিটর (per partner)
@@ -1838,7 +1840,7 @@ G2. KYC-গেটেড MoR রাউটিং
 1519.	KYC verified → MoR আনলক (auto, on admin approve)
 1520.	KYC pending → own gateway only
 1521.	KYC rejected → own gateway only + notification
-1522.	KYC expired → MoR সাসপেন্ড (auto) → own gateway fallback
+1522.	KYC expired → MoR সাসপেন্ড; only an explicit matching approved own-gateway route may proceed
 1523.	MoR শর্ত/লিমিট কনফিগ (per tenant, super_admin)
 1524.	পার-মার্চেন্ট ফি ওভাররাইড (super_admin)
 1525.	চেকআউটে পদ্ধতি নির্বাচন (MoR vs own gateway)
@@ -3857,8 +3859,8 @@ D1. রেট লিমিটিং
 3251.	suspended / rate-limit পেজ (custom branded)
 3252.	রেট লিমিট ওভাররাইড (per tenant, admin)
 D2. ব্রুট-ফোর্স ও লগইন সিকিউরিটি
-3253.	ব্রুট-ফোর্স লকআউট (5 failed → 15 min lock)
-3254.	এক্সপোনেনশিয়াল ব্যাকঅফ (lock duration increases)
+3253.	অ্যাকাউন্ট লকআউট (2 consecutive password/2FA failures → 2-hour lock)
+3254.	IP/device rate-limit backoff account lock-এর অতিরিক্ত control
 3255.	লগইন ভেলোসিটি চেক (too many logins per hour)
 3256.	IP-ভিত্তিক লগইন রেট লিমিট
 3257.	Cloudflare Turnstile ক্যাপচা (signup/login/forgot)
@@ -4216,9 +4218,9 @@ R2. পেমেন্ট এজ কেস
 3555.	ডুপ্লিকেট পেমেন্ট ম্যাচিং (স্মার্ট)
 3556.	ওভারপেমেন্ট → ক্রেডিট ব্যালান্স
 3557.	আন্ডারপেমেন্ট → remaining due
-3558.	মাল্টি-কারেন্সি পেমেন্ট (client pays in local, settle in USD)
-3559.	পেমেন্ট গেটওয়ে টাইমআউট হ্যান্ডলিং
-3560.	পেমেন্ট গেটওয়ে ডাউনটাইম ফলব্যাক
+3558.	Read-only local display conversion; charge, settlement, persistence এবং accounting USD only
+3559.	পেমেন্ট গেটওয়ে টাইমআউট হ্যান্ডলিং with idempotent same-route reconciliation
+3560.	Gateway downtime হলে fail-closed rejection; অন্য processor-এ implicit fallback নয়
 R3. টেন্যান্ট এজ কেস
 3561.	owner ছেড়ে গেলে টেন্যান্টের ownership transfer
 3562.	staff account suspend হলে তাদের draft invoices
@@ -4266,13 +4268,13 @@ T. ডেলিভারি কোয়ালিটি গেট
 3599.	next build গ্রিন (CI)
 3600.	ESLint শূন্য error (CI)
 3601.	Bengali-scan শূন্য (CI, lint guard)
-3602.	Placeholder-scan শূন্য (TODO/FIXME/...)
+3602.	Unfinished-marker scan শূন্য
 3603.	Dead-link scan শূন্য (CI)
 3604.	মোবাইল ৩২০px স্ক্রিনশট চেক (CI)
 3605.	a11y অটো-অডিট পাস (axe-core, CI)
-3606.	ধাপ-ভিত্তিক স্মোক টেস্ট (CI)
-3607.	ভিজ্যুয়াল রিগ্রেশন বেসলাইন (Chromatic/Percy)
-3608.	E2E সিড টেন্যান্ট (বিচ্ছিন্ন, per test run)
+3606.	ধাপ-ভিত্তিক smoke verification (CI)
+3607.	ভিজ্যুয়াল regression audit baseline (Chromatic/Percy)
+3608.	Isolated browser-acceptance tenant seed (per audit run)
 A. ডেপ্লয় ও হোস্টিং (৩৪৫১–৩৪৭৫)
 3451.	Netlify ডেপ্লয় কনফিগ (netlify.toml)
 3452.	.env.example টেমপ্লেট (সব ENV ডকুমেন্টেড)
@@ -4326,16 +4328,16 @@ C. ডেলিভারি কোয়ালিটি গেট (CI) (৩৪�
 3498.	next build গ্রিন (CI)
 3499.	ESLint শূন্য error (CI)
 3500.	Bengali-scan শূন্য (CI lint guard)
-3501.	Placeholder-scan শূন্য (TODO/FIXME)
+3501.	Unfinished-marker scan শূন্য
 3502.	Dead-link scan শূন্য (CI)
 3503.	মোবাইল 320px স্ক্রিনশট চেক (CI)
 3504.	a11y অটো-অডিট পাস (axe-core)
-3505.	ধাপ-ভিত্তিক স্মোক টেস্ট (CI)
-3506.	Vitest ইউনিট টেস্ট (CI)
-3507.	ইন্টিগ্রেশন টেস্ট (CI)
-3508.	Playwright E2E টেস্ট (CI)
-3509.	ভিজ্যুয়াল রিগ্রেশন বেসলাইন
-3510.	E2E সিড টেন্যান্ট (বিচ্ছিন্ন)
+3505.	ধাপ-ভিত্তিক smoke verification (CI)
+3506.	Deterministic module verification scripts (CI, no test-source files)
+3507.	Integration contract verification scripts (CI, no test-source files)
+3508.	Playwright browser acceptance audit (CI, no test-source files)
+3509.	ভিজ্যুয়াল regression audit baseline
+3510.	Isolated acceptance-audit tenant seed
 3511.	GitHub Actions CI/CD পাইপলাইন
 3512.	Preview ডেপ্লয় (PR per branch)
 3513.	Production ডেপ্লয় (main branch)
@@ -4833,8 +4835,8 @@ K2. IP ও নেটওয়ার্ক ট্র্যাকিং
 3959.	DNS লিক ডিটেকশন (WebRTC)
 K3. অ্যাক্টিভিটি ট্র্যাকিং
 3960.	সব পেজ ভিউ লগ (URL, timestamp, duration)
-3961.	সব ক্লিক ইভেন্ট লগ (button, link, form)
-3962.	সব ফর্ম সাবমিশন লগ (fields changed)
+3961.	Consent-aware non-sensitive interaction event metadata; credential/payment/KYC fields excluded
+3962.	ফর্ম submission audit (field names and change categories only; no submitted values or secrets)
 3963.	সব API কল লগ (endpoint, method, status, duration)
 3964.	সব ফাইল আপলোড/ডাউনলোড লগ
 3965.	সব পেমেন্ট অ্যাকশন লগ (initiate, complete, fail)
@@ -4846,10 +4848,10 @@ K3. অ্যাক্টিভিটি ট্র্যাকিং
 3971.	সব ডেটা ডিলিশন লগ
 3972.	সব ইমপারসোনেশন লগ
 3973.	সেশন ডিউরেশন ট্র্যাকিং
-3974.	মাউস মুভমেন্ট প্যাটার্ন (bot detection)
-3975.	কীবোর্ড টাইপিং প্যাটার্ন (bot detection)
-3976.	স্ক্রল প্যাটার্ন (bot detection)
-3977.	অ্যাক্টিভিটি হিটম্যাপ (per user, per session)
+3974.	Privacy-minimized pointer cadence signal with consent; sensitive surfaces excluded
+3975.	Aggregate typing cadence only with consent; no key values and no auth/card/KYC field telemetry
+3976.	Privacy-minimized scroll cadence signal with consent; sensitive surfaces excluded
+3977.	Aggregate activity heatmap with consent, retention limits, and sensitive-region exclusion
 3978.	________________________________________
 L. Zero Trust, Zero Tolerance সিকিউরিটি
 L1. Zero Trust আর্কিটেকচার

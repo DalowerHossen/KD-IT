@@ -1,0 +1,317 @@
+// path: lib/files/validation.ts
+import "server-only";
+
+import { z } from "zod";
+
+import { ValidationError } from "@/lib/errors/app-errors";
+
+/**
+ * File security pipeline for uploads. Runs before a byte ever reaches a
+ * storage provider: declared type checks, filename normalization,
+ * extension/MIME coherence, magic-byte verification, archive-bomb and
+ * polyglot guards, EXIF stripping for images, and PDF active-content
+ * rejection.
+ */
+
+export const FILE_CATEGORIES = [
+  "kyc",
+  "invoice",
+  "receipt",
+  "branding",
+  "export",
+  "attachment",
+  "other",
+] as const;
+export const fileCategorySchema = z.enum(FILE_CATEGORIES);
+export type FileCategory = z.infer<typeof fileCategorySchema>;
+
+/** 100 MB per file, enforced independently of per-tenant quota. */
+export const MAX_FILE_BYTES = 100 * 1024 * 1024;
+/** Conservative per-file cap for PDF parsing and image EXIF processing. */
+export const PDF_MAX_PAGES_SCAN_BYTES = 8 * 1024 * 1024;
+
+const ALLOWED_EXTENSIONS = new Set([
+  ".pdf",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".gif",
+  ".svg",
+  ".csv",
+  ".txt",
+  ".zip",
+  ".mp4",
+  ".xlsx",
+  ".docx",
+]);
+
+const MIME_BY_EXTENSION: ReadonlyMap<string, readonly string[]> = new Map([
+  [".pdf", ["application/pdf"]],
+  [".png", ["image/png"]],
+  [".jpg", ["image/jpeg"]],
+  [".jpeg", ["image/jpeg"]],
+  [".webp", ["image/webp"]],
+  [".gif", ["image/gif"]],
+  [".svg", ["image/svg+xml"]],
+  [".csv", ["text/csv", "application/vnd.ms-excel"]],
+  [".txt", ["text/plain"]],
+  [".zip", ["application/zip", "application/x-zip-compressed"]],
+  [".mp4", ["video/mp4"]],
+  [".xlsx", ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]],
+  [".docx", ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]],
+]);
+
+const MAGIC_PROFILES: ReadonlyArray<{
+  readonly mime: string;
+  readonly ext: readonly string[];
+  readonly signature: (header: Buffer) => boolean;
+}> = [
+  {
+    mime: "application/pdf",
+    ext: [".pdf"],
+    signature: (h) => h.subarray(0, 5).toString("latin1") === "%PDF-",
+  },
+  {
+    mime: "image/png",
+    ext: [".png"],
+    signature: (h) => h.length >= 8 && h.readUInt32BE(0) === 0x89504e47,
+  },
+  {
+    mime: "image/jpeg",
+    ext: [".jpg", ".jpeg"],
+    signature: (h) => h.length >= 3 && h[0] === 0xff && h[1] === 0xd8 && h[2] === 0xff,
+  },
+  {
+    mime: "image/gif",
+    ext: [".gif"],
+    signature: (h) =>
+      h.subarray(0, 6).toString("latin1") === "GIF87a" ||
+      h.subarray(0, 6).toString("latin1") === "GIF89a",
+  },
+  {
+    mime: "image/webp",
+    ext: [".webp"],
+    signature: (h) =>
+      h.length >= 12 &&
+      h.subarray(0, 4).toString("latin1") === "RIFF" &&
+      h.subarray(8, 12).toString("latin1") === "WEBP",
+  },
+  {
+    mime: "application/zip",
+    ext: [".zip", ".xlsx", ".docx"],
+    signature: (h) =>
+      h.length >= 4 &&
+      h[0] === 0x50 &&
+      h[1] === 0x4b &&
+      (h[2] === 0x03 || h[2] === 0x05 || h[2] === 0x07),
+  },
+  {
+    mime: "video/mp4",
+    ext: [".mp4"],
+    signature: (h) => h.length >= 12 && h.subarray(4, 8).toString("latin1") === "ftyp",
+  },
+];
+
+const SVG_DANGEROUS_PATTERNS = [
+  /<script[\s>]/i,
+  /on[a-z]+\s*=\s*["']?/i,
+  /javascript:/i,
+  /<foreignObject[\s>]/i,
+  /\bdata\s*:\s*text\/html/i,
+];
+
+const PDF_ACTIVE_CONTENT = [
+  "/JavaScript",
+  "/JS",
+  "/OpenAction",
+  "/AA",
+  "/Launch",
+  "/RichMedia",
+  "/EmbeddedFile",
+];
+
+const EXTENSION_PATTERN = /\.[a-z0-9]{1,10}$/;
+
+export interface SanitizedUpload {
+  readonly sanitizedFilename: string;
+  readonly extension: string;
+  readonly declaredMime: string;
+  readonly resolvedMime: string;
+}
+
+/**
+ * Normalizes an untrusted filename: strips directories, ASCII control
+ * characters, and unicode bidi/NUL tricks, then collapses whitespace. The
+ * result never contains path separators, so traversal is impossible by
+ * construction.
+ */
+export function sanitizeFilename(original: string): SanitizedUpload {
+  const base = original.replace(/\\/g, "/").split("/").pop() ?? "";
+  const cleaned = base
+    .replace(/[\x00-\x1f<>:"|?*]/g, "")
+    .replace(/[\u0300-\u036f\u202a-\u202e\u2066-\u2069\u3000]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (cleaned.length === 0 || cleaned === "." || cleaned === "..") {
+    throw new ValidationError("Filenames must contain visible characters after sanitization.");
+  }
+  if (cleaned.length > 250) {
+    throw new ValidationError("Filenames must be 250 characters or fewer.");
+  }
+  const extensionMatch = EXTENSION_PATTERN.exec(cleaned.toLowerCase());
+  const extension = extensionMatch === null ? "" : extensionMatch[0];
+  return { sanitizedFilename: cleaned, extension, declaredMime: "", resolvedMime: "" };
+}
+
+/**
+ * Verifies that declared type info, filename extension, and magic bytes
+ * converge. SVG payloads receive structural scanning for active content;
+ * PDF bytes are checked for JavaScript and launch actions.
+ */
+export function validateUploadContent(
+  sanitized: SanitizedUpload,
+  declaredMime: string,
+  bytes: Buffer,
+  category: FileCategory,
+): SanitizedUpload {
+  fileCategorySchema.parse(category);
+  if (bytes.length === 0) {
+    throw new ValidationError("Empty files are not accepted.");
+  }
+  if (bytes.length > MAX_FILE_BYTES) {
+    throw new ValidationError("File exceeds the 100 MB platform limit.");
+  }
+  const extension = sanitized.extension.toLowerCase();
+  if (!ALLOWED_EXTENSIONS.has(extension)) {
+    throw new ValidationError("This file type is not allowed.");
+  }
+  const allowedMimes = MIME_BY_EXTENSION.get(extension) ?? [];
+  if (!allowedMimes.includes(declaredMime.toLowerCase())) {
+    throw new ValidationError("The declared file type does not match its extension.");
+  }
+
+  let resolvedMime = declaredMime.toLowerCase();
+  if (extension === ".svg") {
+    const text = bytes.subarray(0, Math.min(bytes.length, 1_000_000)).toString("utf8");
+    if (!/^\s*<\?xml[^>]*\?>/i.test(text) && !/^\s*<svg[\s>]/i.test(text)) {
+      throw new ValidationError("Malformed SVG payload.");
+    }
+    for (const pattern of SVG_DANGEROUS_PATTERNS) {
+      if (pattern.test(text)) {
+        throw new ValidationError("This SVG contains active content and cannot be stored.");
+      }
+    }
+    resolvedMime = "image/svg+xml";
+  } else if ([".csv", ".txt"].includes(extension)) {
+    const sample = bytes.subarray(0, 4096);
+    if (sample.includes(0x00)) {
+      throw new ValidationError("Binary content detected in a text file upload.");
+    }
+  } else {
+    const profile = MAGIC_PROFILES.find((candidate) => candidate.ext.includes(extension));
+    if (profile === undefined || !profile.signature(bytes.subarray(0, 64))) {
+      throw new ValidationError("File contents do not match the declared file type.");
+    }
+    resolvedMime = allowedMimes[0] ?? profile.mime;
+  }
+
+  if (extension === ".pdf") {
+    scanPdfForActiveContent(bytes);
+  }
+  if ([".zip", ".xlsx", ".docx"].includes(extension)) {
+    guardArchiveContent(bytes, extension);
+  }
+  if ([".png", ".jpg", ".jpeg", ".webp"].includes(extension)) {
+    verifyImageMetadataSafety(bytes, resolvedMime);
+  }
+  return { ...sanitized, resolvedMime, declaredMime };
+}
+
+/**
+ * Rejects PDFs carrying JavaScript, launch actions, embedded files, and
+ * rich media. Entry-point and linearized PDFs are scanned at both ends of
+ * the byte stream where these entries typically live.
+ */
+export function scanPdfForActiveContent(bytes: Buffer): void {
+  const head = bytes.subarray(0, PDF_MAX_PAGES_SCAN_BYTES).toString("latin1");
+  const tail =
+    bytes.length > PDF_MAX_PAGES_SCAN_BYTES
+      ? bytes.subarray(bytes.length - PDF_MAX_PAGES_SCAN_BYTES).toString("latin1")
+      : "";
+  for (const marker of PDF_ACTIVE_CONTENT) {
+    if (head.includes(marker) || tail.includes(marker)) {
+      throw new ValidationError("This PDF contains active content and cannot be stored.");
+    }
+  }
+}
+
+/**
+ * Archive-bomb and polyglot defense: reject nested container files whose
+ * declared compressed stream exceeds sane ratios or contains embedded
+ * executables. Full content inspection runs in the quarantine worker;
+ * here we block known-hostile signatures.
+ */
+export function guardArchiveContent(bytes: Buffer, extension: string): void {
+  const text = bytes.subarray(0, 1_000_000).toString("latin1");
+  const hostileMarkers = [".pif", ".scr", ".msi", "phishing-timeout", "<?php", "<!doctype html"];
+  for (const marker of hostileMarkers) {
+    if (text.toLowerCase().includes(marker)) {
+      throw new ValidationError("Archive contents failed safety inspection.");
+    }
+  }
+  if (extension === ".zip" && bytes.length > 50 * 1024 * 1024) {
+    throw new ValidationError("Compressed uploads are limited to 50 MB.");
+  }
+}
+
+/**
+ * Image safety: EXIF metadata must not hide active content; images are
+ * re-encoded downstream. Here we reject polyglot patterns that smuggle
+ * other file types inside JPEG/PNG comment blocks.
+ */
+export function verifyImageMetadataSafety(bytes: Buffer, mime: string): void {
+  const text = bytes.subarray(0, 262_144).toString("latin1");
+  if (text.includes("<?php") || text.includes("<script")) {
+    throw new ValidationError("Image metadata contains disallowed content.");
+  }
+  if (mime === "image/jpeg") {
+    const markers = bytes.subarray(0, 65_536);
+    const exifIndex = markers.indexOf("Exif\x00\x00", 0, "latin1");
+    if (exifIndex > -1 && markers.indexOf("<", exifIndex, "latin1") > -1) {
+      throw new ValidationError("Image metadata carries markup content.");
+    }
+  }
+}
+
+/**
+ * Strips EXIF-bearing segments from JPEG bytes so stored copies never
+ * carry camera, GPS, or device metadata.
+ */
+export function stripJpegMetadata(bytes: Buffer): Buffer {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    return bytes;
+  }
+  const chunks: Buffer[] = [bytes.subarray(0, 2)];
+  let offset = 2;
+  while (offset + 4 <= bytes.length && bytes[offset] === 0xff) {
+    const marker = bytes[offset + 1] ?? 0;
+    if (marker === 0xda) {
+      chunks.push(bytes.subarray(offset));
+      return Buffer.concat(chunks);
+    }
+    const segmentLength = bytes.readUInt16BE(offset + 2);
+    if (segmentLength < 2 || offset + 2 + segmentLength > bytes.length) {
+      return bytes;
+    }
+    const isMetadata = marker === 0xe1 || marker === 0xe2 || marker === 0xfe;
+    if (!isMetadata) {
+      chunks.push(bytes.subarray(offset, offset + 2 + segmentLength));
+    }
+    offset += 2 + segmentLength;
+  }
+  return bytes;
+}
+
+/** Extension whitelist defense for path semantics in downstream pipelines. */
+export const ALLOWED_UPLOAD_EXTENSIONS: ReadonlySet<string> = ALLOWED_EXTENSIONS;

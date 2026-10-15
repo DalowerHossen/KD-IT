@@ -1,10 +1,25 @@
+// path: MASTER_PROMPT.md
+
 ================================================================================
 PROJECT: KD SOLUTION IT — Enterprise Multi-Tenant SaaS Platform
-VERSION: 2.0 (Production-Ready Master Prompt)
-LAST UPDATED: [Date]
-REPOSITORY: github.com/[your-username]/kd-solution-it
+VERSION: 3.0 (Reconciled Planning Baseline)
+LAST UPDATED: 2026-10-14
+REPOSITORY: github.com/DalowerHossen/KD-IT
 LICENSE: Proprietary
 ================================================================================
+
+AUTHORITATIVE EXECUTION ORDER:
+1. REQUIREMENTS_ADDENDUM.md
+2. IMPLEMENTATION_PLAN.md
+3. REQUIREMENTS_TRACEABILITY.md
+4. PROVIDER_RESEARCH_PROTOCOL.md
+5. CHAT_INSTRUCTIONS.md
+6. This document
+7. FEATURE_LIST.md
+
+The newer documents above supersede only conflicting older statements. All
+non-conflicting requirements in this document and FEATURE_LIST.md remain mandatory.
+The implementation uses sixteen sequential chats, not the former ten-chat split.
 
 You are an expert full-stack software architect and senior engineer with 15+ 
 years of experience building enterprise-grade SaaS platforms. Your task is to 
@@ -14,7 +29,7 @@ market.
 
 You MUST follow every rule in this document without exception. You MUST implement 
 every feature listed. You MUST NOT skip any security measure. You MUST NOT use 
-placeholders, TODOs, or "Coming Soon" text anywhere.
+unfinished markers or non-functional placeholder copy anywhere.
 
 ================================================================================
 🔴 ABSOLUTE RULES (ZERO EXCEPTIONS)
@@ -45,21 +60,19 @@ RULE 2 — CURRENCY ENFORCEMENT:
 - Validate currency code with Zod: z.enum(['USD']) for base, ISO 4217 for display
 
 RULE 3 — DATA STORAGE POLICY (STRICT):
-- Text/structured data → Supabase (PostgreSQL 15+) ONLY
-- All files/media → Google Drive API ONLY (via Service Account)
-  * Images (JPG, PNG, SVG, WebP, AVIF)
-  * PDFs (invoices, receipts, contracts, reports)
-  * KYC documents (ID front/back, business docs, address proof)
-  * Logos, favicons, branding assets
-  * Attachments (invoice attachments, receipt scans)
-  * Payroll documents (pay slips, tax forms)
-  * E-signature evidence
-  * Dispute evidence packs
-- Every file in Google Drive MUST be AES-256-GCM encrypted BEFORE upload
-- Implement zero-knowledge encryption: encryption key derived from tenant_id + 
-  master key, never stored in plaintext
-- Per-tenant Google Drive folder structure: /tenants/{tenant_id}/{category}/
-- Supabase Storage used ONLY as fallback when Google Drive API is unavailable
+- Text and structured data → Supabase PostgreSQL ONLY
+- File bytes use a per-tenant runtime provider policy:
+  * Google Drive is preferred when the tenant has an enabled, healthy connection
+  * Supabase Storage is preferred when Google Drive is not connected
+  * A healthy alternate provider is used automatically when the preferred provider is unavailable
+  * Reads always use the provider recorded on the file row
+- Images, PDFs, KYC documents, branding assets, attachments, payroll documents,
+  e-signature evidence, and dispute evidence all follow this policy
+- Every file MUST be AES-256-GCM encrypted BEFORE either provider receives bytes
+- Implement versioned envelope encryption; master key material remains in server
+  environment configuration and is never stored in plaintext in the database
+- Maintain per-tenant provider isolation and a verified provider migration tool
+- Every file record stores storage_provider and integrity metadata
 - Implement adapter pattern: lib/storage/adapters/ (google-drive.ts, supabase.ts)
 
 RULE 4 — EXCLUDED FEATURES (DO NOT BUILD):
@@ -72,14 +85,13 @@ RULE 4 — EXCLUDED FEATURES (DO NOT BUILD):
       create tests/ folder or any .test.ts files
 
 RULE 5 — PAYMENT PARTNER NAMING CONVENTION:
-- NEVER use these brand names directly in UI, code, database, or documentation:
-  * bKash, Nagad, GCash, PromptPay, PayNow, UPI, Alipay, WeChat Pay
-  * DuitNow, MoMo, OVO, GoPay, PayPay, KakaoPay, GrabPay, TrueMoney, Dana, Boost
-- INSTEAD use these generic names everywhere:
+- Prohibited regional consumer-wallet brand names supplied by the product owner
+  MUST NOT appear in UI, code, database values, seeds, or product documentation
+- Use these generic names everywhere:
   * "Global Payout Partners" (for payout methods)
   * "Local Payment Methods via Licensed Partners" (for collection methods)
-- Internal database can use method_code (e.g., "mobile_wallet_a_bd", 
-  "bank_transfer_us") but display labels MUST be generic
+- Internal database values use neutral method codes such as "mobile_wallet_a_bd"
+  and "bank_transfer_us"; display labels MUST remain generic
 - Documentation and marketing materials MUST use generic names
 
 RULE 6 — TARGET MARKET:
@@ -114,20 +126,33 @@ BACKEND:
 - Realtime: Supabase Realtime (WebSocket)
 - Row-Level Security: Supabase RLS (default-deny policies)
 - Background Jobs: Supabase pg_cron + DB-backed queue (FOR UPDATE SKIP LOCKED)
-- File Storage: Google Drive API v3 (Service Account OAuth2)
+- File Storage: tenant-connected Google Drive API v3 or Supabase Storage via encrypted runtime adapters
 - Email: Universal SMTP adapter (default: Resend)
 - Captcha: Cloudflare Turnstile
 - Rate Limiting: Supabase table-based (Upstash Redis adapter ready)
 - Caching: Netlify CDN + ISR + stale-while-revalidate
 
-PAYMENT GATEWAYS (all with pluggable adapter pattern):
-- Stripe (Connect for MoR)
-- PayPal (Orders API v2)
-- Paddle (Checkout + Subscriptions)
-- NMI (Three-Step Redirect + Direct Post)
-- Rapyd (Collect + Payout API)
-- Adyen (Checkout + MarketPay)
-- Custom gateway adapter (JSON-driven config)
+PAYMENT GATEWAYS (all with separate pluggable adapters and one registry):
+- Stripe
+- NMI (Collect.js default plus Payment Component, shared REST processing)
+- Adyen
+- Verifone 2Checkout
+- Braintree by PayPal
+- BlueSnap
+- Square
+- Payoneer
+- FastSpring
+- Paddle
+- PayPro Global
+- PayPal standalone
+- Payarc or PaymentCloud
+- Rapyd
+- Authorize.Net
+- Custom HTTPS gateway adapter
+
+Provider code requires fresh official API and sandbox documentation research in
+its implementation session. The super-admin control plane can configure only
+code-defined adapters and routing fails closed when no rule matches.
 
 INTEGRATIONS:
 - WhatsApp: Meta Cloud API (WhatsApp Business Platform)
@@ -156,7 +181,7 @@ SECURITY TOOLS:
 - Malware Scanning: ClamAV (file uploads)
 
 ================================================================================
-👥 ROLE MODEL (6 ROLES WITH APPROVAL HIERARCHY)
+👥 ROLE MODEL (5 AUTHENTICATED ROLES + TOKENIZED CLIENT ACCESS)
 ================================================================================
 
 1. super_admin → KD SOLUTION IT founder/owner (you)
@@ -198,13 +223,19 @@ SECURITY TOOLS:
 6. [NO CLIENT ROLE] → Clients access via tokenized HMAC links (login-free)
 
 APPROVAL WORKFLOW ENGINE:
-- Every action has an approval_level (L1: staff, L2: CEO, L3: super_admin)
-- Approval SLA with auto-escalation
-- Approval delegation (CEO on leave → super_admin auto)
-- Dual approval for critical actions (CEO + super_admin both)
-- Approval history with complete chain
+- Every action validates a discrete approval or a CEO/super-admin-approved standing read grant
+- Every state-changing command uses a discrete proposal before side effects occur
+- L1 records the initiator and owner attestation for staff-originated commands
+- L2 requires CEO approval
+- L3 requires super_admin final approval
+- CEO-originated commands still require L3
+- super_admin-originated commands require step-up reauthentication, a proposal event,
+  and a separate confirmation event; critical commands use dual control when available
+- Approval SLA with controlled escalation and no authority bypass
+- Approval delegation is explicit, time-bound, least-privilege, and audited
+- Approval history preserves the complete immutable chain
 - Approval dashboard per role
-- Bulk approval for CEO/super_admin
+- Bulk approval preserves per-command validation, version, and audit records
 
 Implementation files:
 - lib/auth/roles.ts (role definitions)
@@ -217,9 +248,10 @@ Implementation files:
 ================================================================================
 
 GENERAL RULES:
-- Every table MUST have: id (UUID v7), company_id (UUID, nullable only for 
-  platform-level), created_at (TIMESTAMPTZ UTC), updated_at (TIMESTAMPTZ UTC), 
+- Every table MUST have: id (UUID v7), company_id (UUID NOT NULL),
+  created_at (TIMESTAMPTZ UTC), updated_at (TIMESTAMPTZ UTC), and
   deleted_at (TIMESTAMPTZ UTC, nullable)
+- Platform-level rows use the reserved platform company record; company_id is not null
 - Every money column: numeric(18,4) NOT NULL
 - Every timestamp: TIMESTAMPTZ (UTC, no local time)
 - Every UUID: UUID v7 (time-sortable, better index locality)
@@ -228,7 +260,9 @@ GENERAL RULES:
 - Every table: partial unique index for soft-deleted rows
 - Every table: index on company_id for tenant queries
 - Every table: index on created_at for pagination
-- Every table: audit trigger (insert into audit_logs on INSERT/UPDATE/DELETE)
+- Every editable table: version INTEGER NOT NULL DEFAULT 1
+- Every table: audit trigger or transactionally equivalent immutable audit append
+- The audit append path prevents recursive self-auditing
 
 NAMING CONVENTIONS:
 - Table names: snake_case, plural (e.g., invoices, payment_methods)
@@ -359,12 +393,7 @@ kd-solution-it/
 │   │   ├── team/
 │   │   ├── settings/
 │   │   ├── webhooks/                   # Incoming webhooks
-│   │   │   ├── stripe/
-│   │   │   ├── paypal/
-│   │   │   ├── paddle/
-│   │   │   ├── nmi/
-│   │   │   ├── rapyd/
-│   │   │   ├── adyen/
+│   │   │   ├── payments/[provider]/    # Registry-dispatched payment webhook
 │   │   │   ├── shopify/
 │   │   │   ├── woocommerce/
 │   │   │   └── whatsapp/
@@ -417,13 +446,23 @@ kd-solution-it/
 │   │   └── session.ts
 │   ├── payment/
 │   │   ├── adapters/
-│   │   │   ├── base.ts                 # Abstract gateway interface
+│   │   │   ├── base.ts                 # Strict gateway interface
+│   │   │   ├── registry.ts
 │   │   │   ├── stripe.ts
-│   │   │   ├── paypal.ts
-│   │   │   ├── paddle.ts
 │   │   │   ├── nmi.ts
-│   │   │   ├── rapyd.ts
 │   │   │   ├── adyen.ts
+│   │   │   ├── verifone-2checkout.ts
+│   │   │   ├── braintree-paypal.ts
+│   │   │   ├── bluesnap.ts
+│   │   │   ├── square.ts
+│   │   │   ├── payoneer.ts
+│   │   │   ├── fastspring.ts
+│   │   │   ├── paddle.ts
+│   │   │   ├── paypro-global.ts
+│   │   │   ├── paypal.ts
+│   │   │   ├── payarc-paymentcloud.ts
+│   │   │   ├── rapyd.ts
+│   │   │   ├── authorize-net.ts
 │   │   │   └── custom.ts
 │   │   ├── mor-engine.ts               # Merchant of Record logic
 │   │   ├── routing.ts                  # Gateway routing
@@ -433,8 +472,8 @@ kd-solution-it/
 │   ├── storage/
 │   │   ├── adapters/
 │   │   │   ├── base.ts
-│   │   │   ├── google-drive.ts         # PRIMARY
-│   │   │   └── supabase.ts             # FALLBACK
+│   │   │   ├── google-drive.ts         # Preferred when tenant-connected
+│   │   │   └── supabase.ts             # Preferred when Drive is not connected
 │   │   ├── encryption.ts               # AES-256-GCM
 │   │   ├── upload.ts
 │   │   └── file-validator.ts
@@ -602,8 +641,8 @@ kd-solution-it/
 │   ├── restore.sh                      # pg_restore
 │   ├── check-english-only.sh           # Non-ASCII blocker
 │   ├── check-no-tests.sh               # Ensure no test files
-│   ├── check-no-todo.sh                # Ensure no TODO/FIXME
-│   ├── check-no-coming-soon.sh         # Ensure no "Coming Soon"
+│   ├── check-no-unfinished-markers.sh  # Reject unfinished markers
+│   ├── check-no-placeholder-copy.sh    # Reject placeholder copy
 │   └── deploy.sh
 ├── public/                             # Static assets
 ├── styles/                             # Global CSS
@@ -647,26 +686,27 @@ kd-solution-it/
 └── MASTER_PROMPT.md                    # This file
 
 ================================================================================
-📦 COMPLETE FEATURE IMPLEMENTATION (3,950 FEATURES)
+📦 COMPLETE FEATURE IMPLEMENTATION (4,187 ENUMERATED ROWS)
 ================================================================================
 
-Implement all 3,950 features from these 11 parts (full list in 
-FEATURE_LIST.md in repository root):
+Implement all 4,187 namespaced requirement rows from these 11 parts. Numeric
+labels that overlap between Parts 9, 10, and 11 remain distinct requirements.
+REQUIREMENTS_TRACEABILITY.md defines canonical keys and single-step ownership.
 
-PART 1 — Core Foundation & Branding (375 features)
-PART 2 — Auth, Onboarding & Settings (391 features)
-PART 3 — Invoicing & Business Core (476 features)
-PART 4 — Payment, Gateway & MoR System (423 features)
-PART 5 — Client Experience & Branding (275 features)
-PART 6 — WhatsApp, Social, API & Integrations (413 features)
-PART 7 — Super Admin, SEO, Analytics & Marketing (445 features)
-PART 8 — Payroll, HR, Accounting & Reports (356 features)
-PART 9 — Security, Compliance & Performance (296 features)
-PART 10 — Deploy, CI/CD & Final Polish (150 features)
-PART 11 — Enhanced Security, Roles & Zero Trust (425 features)
+PART 1 — Core Foundation & Branding (375 rows)
+PART 2 — Auth, Onboarding & Settings (391 rows)
+PART 3 — Invoicing & Business Core (476 rows)
+PART 4 — Payment, Gateway & MoR System (423 rows)
+PART 5 — Client Experience & Branding (275 rows)
+PART 6 — WhatsApp, Social, API & Integrations (413 rows)
+PART 7 — Super Admin, SEO, Analytics & Marketing (445 rows)
+PART 8 — Payroll, HR, Accounting & Reports (356 rows)
+PART 9 — Security, Compliance & Performance (454 rows)
+PART 10 — Deploy, CI/CD & Final Polish (150 rows)
+PART 11 — Enhanced Security, Roles & Zero Trust (429 rows)
 
-NEVER skip a feature. NEVER leave a feature partially implemented. 
-NEVER use "TODO" or "Coming Soon".
+Never skip a requirement or leave it partially implemented. Unfinished-marker
+comments and non-functional placeholder copy are prohibited.
 
 ================================================================================
 🔐 SECURITY REQUIREMENTS (ZERO TOLERANCE)
@@ -743,11 +783,13 @@ LAYER 3 — AUTHENTICATION & ACCESS CONTROL:
 - OAuth 2.0: Google, GitHub (encrypted token storage)
 - WebAuthn/FIDO2 ready (future hardware key support)
 - Session Fixation Prevention: Rotate session ID on login
-- Brute-force Lockout: 5 failed attempts → 15 min lock (exponential backoff)
+- Account Lockout: 2 consecutive password or 2FA failures → 2-hour database-persistent lock
+- Correct credentials, password reset, and password change do not clear an active lock
+- Unlock requires permission, email-contact evidence, step-up 2FA, approval, and audit
 - Password Breach Check: HIBP API integration (SHA-1 k-anonymity)
 - Password Policy: Min 12 chars, uppercase, lowercase, number, special
 - Password History: Last 5 passwords blocked
-- Role-Based Access Control: 6 roles (super_admin/ceo/admin_staff/owner/staff + client-tokenized)
+- Role-Based Access Control: 5 authenticated roles (super_admin/ceo/admin_staff/owner/staff) plus tokenized client access
 - Row-Level Security: Supabase RLS with default-deny on every table
 - Step-up 2FA: Required for sensitive actions (gateway change, payout, KYC)
 - Session Cookie: HttpOnly + Secure + SameSite=Strict
@@ -768,7 +810,7 @@ LAYER 4 — DATA ENCRYPTION:
 - Per-environment keys in separate .env files
 - Secret access audit log
 - Backup encryption (encrypted at rest + in transit)
-- Google Drive client-side encryption BEFORE upload (zero-knowledge)
+- AES-256-GCM encryption BEFORE upload to either file provider
 - Encryption performance benchmark (document in docs/)
 - PII log redaction (Sentry integration)
 - Blind index for encrypted field search
@@ -781,7 +823,7 @@ LAYER 5 — MULTI-TENANT ISOLATION:
   FOR ALL USING (company_id = (auth.jwt() ->> 'company_id')::uuid);
 - Every query validates company_id in middleware (lib/middleware/tenant.ts)
 - Cross-tenant ID guard: Return 404 (never 403) to prevent enumeration
-- Google Drive folder isolation: /tenants/{tenant_id}/
+- Provider path and object isolation per tenant; Google Drive uses /tenants/{tenant_id}/
 - Storage path isolation (per tenant)
 - Shared tables (plans, countries) have RLS allowing read-only
 - Automated isolation tests (via SQL assertions, no test files)
@@ -915,7 +957,7 @@ AUDIT LOG REQUIREMENTS:
 - Cryptographic signing: Ed25519 per entry
 - Timestamp authority: NTP-synced, UTC
 - Sequence number: Gap detection
-- Write-once storage: Google Drive immutable bucket (versioning enabled)
+- Write-once encrypted archive through the selected provider with version retention enabled
 - Periodic Merkle tree root (tamper-proof root hash)
 - Retention: 7 years minimum (configurable per jurisdiction)
 - Search & filter (by user, action, resource, time)
@@ -972,7 +1014,7 @@ MONITORING:
 - Payment gateway monitoring (success rate, latency)
 - Email delivery monitoring (bounce rate, spam rate)
 - WhatsApp API monitoring (delivery rate, block rate)
-- Storage monitoring (Google Drive quota, API limits)
+- Storage monitoring (selected provider health, quota, API limits)
 - Cron job monitoring (dead man's switch)
 - SSL certificate monitoring (expiry alerts)
 - Domain expiry monitoring
@@ -1019,7 +1061,7 @@ INCIDENT RESPONSE:
 
 One-click Evidence Pack generation (per dispute):
 Evidence Pack contents:
-1. Invoice PDF (immutable snapshot, from Google Drive)
+1. Invoice PDF (immutable snapshot, from the file provider recorded on its metadata)
 2. Payment receipt (timestamped)
 3. Consent proof:
    - Checkbox acceptance timestamp (UTC)
@@ -1073,7 +1115,7 @@ Evidence Pack features:
 - Email to processor (auto)
 - Per-dispute case file (organized)
 - 24-hour submission framework
-- 18-month retention (Google Drive encrypted)
+- 18-month encrypted retention through the recorded file provider
 - Dispute deadline tracker (countdown)
 - Dispute status workflow (new → evidence submitted → won/lost)
 - Dispute win/loss analytics (per gateway, per reason code)
@@ -1122,9 +1164,9 @@ IP & NETWORK TRACKING:
 - Implementation: lib/security/ip-reputation.ts
 
 ACTIVITY TRACKING:
-- All page views (URL, timestamp, duration)
-- All click events (button, link, form)
-- All form submissions (fields changed)
+- Consent-aware, minimized page metadata (URL category, timestamp, duration)
+- Non-sensitive interaction event metadata; credential, payment, and KYC fields excluded
+- Form submission audit records field names and change categories, never submitted values
 - All API calls (endpoint, method, status, duration)
 - All file uploads/downloads
 - All payment actions (initiate, complete, fail)
@@ -1135,11 +1177,10 @@ ACTIVITY TRACKING:
 - All approval/reject actions
 - All data deletions
 - All impersonation actions
-- Session duration tracking
-- Mouse movement pattern (bot detection)
-- Keyboard typing pattern (bot detection)
-- Scroll pattern (bot detection)
-- Activity heatmap (per user, per session)
+- Session duration tracking under consent and retention controls
+- Privacy-minimized pointer and scroll cadence signals on non-sensitive surfaces
+- Aggregate typing cadence only with consent; never key values or auth/card/KYC fields
+- Aggregate activity heatmaps with sensitive-region exclusion and retention limits
 
 ================================================================================
 📝 CODE QUALITY STANDARDS
@@ -1151,19 +1192,19 @@ TYPESCRIPT:
 - strictNullChecks: true
 - noUnusedLocals: true
 - noUnusedParameters: true
-- Zero `any` types without justification comment
+- Zero untyped escape-hatch types without exception
 - All functions have explicit return types
 - All props interfaces exported
 - Discriminated unions over enums where possible
 
 CODE ORGANIZATION:
-- Every file starts with path comment: // path: lib/payment/stripe.ts
-- One commit per feature (atomic commits)
-- Conventional commits: feat/fix/docs/style/refactor/perf/test/chore
-- Pre-commit hooks: lint, format, type-check, non-ASCII check
-- No console.log in production code (use structured logger)
-- No TODO/FIXME comments (implement or remove)
-- No "Coming Soon" text anywhere
+- Every authored file starts with its repository path using valid comment syntax
+- One completion commit per implementation step; do not mix step scopes
+- Conventional commits: feat/fix/docs/style/refactor/perf/chore
+- Pre-commit hooks: lint, format, type-check, English-only product artifact check
+- Use the structured logger; do not write directly to the runtime console
+- No unfinished-marker comments
+- No non-functional placeholder copy
 - Max file size: 500 lines (split if larger)
 - Max function size: 50 lines (refactor if larger)
 
@@ -1245,7 +1286,7 @@ PAGE COMPLETENESS (ZERO BLANK PAGES):
 - Error state (with retry)
 - Empty state (with CTA)
 - Success state
-- NO "Coming Soon" text
+- NO non-functional placeholder copy
 - NO placeholder content (lorem ipsum)
 - Real copy on every page
 - Every button/label/tooltip written
@@ -1406,10 +1447,10 @@ ALL IMPLEMENTATIONS MUST:
 ================================================================================
 
 NEVER:
-- Use `any` type without JSDoc justification
-- Use `console.log` in production code
-- Leave TODO/FIXME comments
-- Use "Coming Soon" placeholder text
+- Use an untyped escape-hatch type
+- Write directly to the runtime console instead of the structured logger
+- Leave unfinished-marker comments
+- Use non-functional placeholder copy
 - Hardcode secrets in code
 - Store secrets in client bundle
 - Use client-side-only validation (always server-side too)
@@ -1464,128 +1505,37 @@ ALWAYS:
 🎯 IMPLEMENTATION PRIORITY (ORDER)
 ================================================================================
 
-Build in this order (10 chats total, as planned):
+The authoritative implementation order is exactly sixteen sequential chats.
+Detailed scope, substeps, ownership boundaries, and completion gates are in
+IMPLEMENTATION_PLAN.md. Exact first-message blocks are in CHAT_INSTRUCTIONS.md.
 
-CHAT 1: Foundation
-- Database schema (migrations)
-- Auth system (Supabase + 2FA + OAuth)
-- Role model (6 roles) + approval engine
-- Universal SMTP system
-- Onboarding wizard
-- Basic settings
-- Public site skeleton (homepage, auth pages)
-
-CHAT 2: Invoicing Core
-- Invoice CRUD
-- Line items (dynamic)
-- American-style Amazon-acceptable invoice
-- PDF engine (React-PDF)
-- Invoice numbering (gapless, advisory lock)
-- Invoice statuses & workflow
-
-CHAT 3: CRM & Business
-- Client CRM (CRUD, search, merge)
-- Product/Service catalog
-- Inventory & warehouse
-- Suppliers & purchase orders
-- Dashboard & basic reports
-
-CHAT 4: Payments & MoR
-- Pluggable gateway adapters (Stripe/PayPal/Paddle/NMI/Rapyd/Adyen/Custom)
-- Payment processing & experience
-- Payment links & hosted checkout
-- Pluggable integration (iFrame/SDK/API)
-- Virtual wallet + MoR system
-- KYC-gated routing
-- Payout processing
-- Chargeback & dispute management
-- Evidence Pack generator
-
-CHAT 5: Client Experience
-- Tokenized client access (HMAC)
-- Client-facing pages (invoice/payment/estimate/receipt/hub/contract)
-- Client email journey (all templates)
-- Tenant branding (per-tenant customization)
-- White-label tier
-- Document integrity & workflow
-
-CHAT 6: Automation & Integrations
-- WhatsApp automation (Meta Cloud API)
-- Social media automation (7 platforms)
-- Public REST API + Webhooks
-- Zapier/Make/Chrome extension
-- Bank feed & reconciliation
-- Receipt OCR
-- Contracts & e-signature
-- Multi-channel messaging
-
-CHAT 7: Admin & Marketing
-- Super admin dashboard
-- CEO + admin_staff roles
-- Approval engine (full)
-- CMS editor
-- Blog management
-- Email template manager
-- SEO (8 JSON-LD schemas, OG, sitemap)
-- Analytics & pixels
-- Conversion optimization
-- Marketing automation
-
-CHAT 8: Payroll, Accounting & Reports
-- Payroll system (complete)
-- HR management
-- Double-entry accounting
-- Chart of Accounts
-- Journal entries (manual + automated)
-- Financial statements (P&L, Balance Sheet, Cash Flow)
-- Bank reconciliation
-- Fixed assets & depreciation
-- Budget management
-- Tax filing & compliance
-- Financial reports (15+)
-
-CHAT 9: Security & Compliance (Deep)
-- All security layers (10 layers)
-- VPN/Proxy detection
-- Device fingerprinting
-- Fraud engine
-- Zero Trust architecture
-- Zero Tolerance policies
-- Immutable audit log + SIEM
-- Compliance (GDPR/CCPA/PDPA/all)
-- Data residency
-- Conflict & duplicate prevention (ALL implementations)
-- Monitoring, alerting, incident response
-
-CHAT 10: Deploy & Final Polish
-- Netlify deploy config
-- Docker self-hosting
-- CI/CD pipeline (GitHub Actions)
-- Cron jobs (20 total)
-- Monitoring setup (Sentry, UptimeRobot)
-- Documentation (README, CONTRIBUTING, SECURITY, ERD, ADR)
-- Final UX polish
-- PWA setup
-- Performance optimization
-- Final security audit
+CHAT 01: Repository foundation, design system, and shared application shell
+CHAT 02: Supabase data plane, tenancy, audit, approvals, encryption, and storage
+CHAT 03: Authentication, roles, lockout, onboarding, settings, SMTP, and KYC
+CHAT 04: Invoicing, documents, numbering, PDF, recurring billing, and print
+CHAT 05: CRM, products, inventory, suppliers, projects, commerce, tax, and reports
+CHAT 06: Payment core, risk controls, hosted UI boundary, and gateway control plane
+CHAT 07: Stripe, NMI, Adyen, and Verifone 2Checkout
+CHAT 08: Braintree, BlueSnap, Square, and Payoneer
+CHAT 09: FastSpring, Paddle, PayPro Global, and standalone PayPal
+CHAT 10: Payarc or PaymentCloud, Rapyd, Authorize.Net, Custom, and payment operations
+CHAT 11: Tokenized client experience, branding, collections, and workflows
+CHAT 12: Communications, public API, webhooks, integrations, OCR, e-sign, and imports
+CHAT 13: Platform administration, public site, CMS, SEO, analytics, and growth
+CHAT 14: Payroll, HR, expenses, double-entry accounting, and financial reporting
+CHAT 15: Advanced security, privacy, fraud, compliance, SIEM, resilience, and edge cases
+CHAT 16: Deployment, schedules, performance, documentation, and launch certification
 
 ================================================================================
 📄 WHEN STARTING EACH CHAT:
 ================================================================================
 
-At the start of EACH chat, reference this document:
-"I am building KD SOLUTION IT per MASTER_PROMPT.md. 
-Current chat: [N] of 10. Scope: [description]. 
-Continuing from where previous chat ended."
-
-At the end of EACH chat, create a handoff document:
-"CHAT_[N]_COMPLETED.md containing:
-- Features implemented
-- Files created/modified
-- Database migrations added
-- Dependencies installed
-- Known issues
-- Next chat's starting point"
+Paste the matching block from CHAT_INSTRUCTIONS.md as the first message. Before
+editing, verify all previous completion commits and handoffs, inspect existing work,
+and present a concise substep execution plan. Complete only one numbered step in
+that chat. At the end, create docs/handoffs/STEP_XX_COMPLETED.md, run every
+available gate, create one conventional completion commit, and push the tracked
+Arena branch without force.
 
 ================================================================================
 🎯 FINAL INSTRUCTION
@@ -1610,12 +1560,12 @@ Build this platform systematically. For EVERY feature:
 16. Add dark mode support
 17. Document (path comment, JSDoc for complex logic)
 
-NEVER skip steps. NEVER use "TODO". NEVER use "Coming Soon".
-The platform must be production-ready, enterprise-grade, 
+Never skip a step. Unfinished-marker comments and non-functional placeholder copy
+are prohibited. The platform must be production-ready, enterprise-grade, and
 Amazon-acceptable quality from day one.
 
-Begin implementation.
+Follow the matching numbered prompt in CHAT_INSTRUCTIONS.md.
 
 ================================================================================
-END OF MASTER PROMPT v2.0
+END OF MASTER PROMPT v3.0
 ================================================================================

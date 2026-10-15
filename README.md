@@ -25,6 +25,10 @@ The addendum is authoritative when an older statement conflicts with a newer pro
 
 Open a new chat and paste the Chat 01 block from `CHAT_INSTRUCTIONS.md`. After Step 01 is committed and pushed, use Chat 02 in a new chat. Continue in numeric order through Chat 16. Do not run steps concurrently against the same integration baseline.
 
+## Permanent Claude context
+
+Use Claude Code or a Claude session with live GitHub repository access. The root [`CLAUDE.md`](CLAUDE.md) file is the permanent bootstrap and instructs Claude to read the current branch, authoritative documents, execution status, and committed handoffs at the start of every session. Do not maintain duplicate uploaded copies of changing repository files in Claude Project Context.
+
 ## Reconciled scope
 
 - 4,187 namespaced rows from `FEATURE_LIST.md`
